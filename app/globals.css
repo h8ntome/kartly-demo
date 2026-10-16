@@ -1,0 +1,221 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ *
+ * Kartly design tokens
+ *
+ * Deep green for trust, lime for money saved, warm paper so a price
+ * comparison never feels like a spreadsheet.
+ * ------------------------------------------------------------------ */
+@theme {
+  --color-forest-950: #04170f;
+  --color-forest-900: #07251a;
+  --color-forest-800: #0b3527;
+  --color-forest-700: #104733;
+  --color-forest-600: #166045;
+  --color-forest-500: #1e7a56;
+  --color-forest-400: #2b9c6d;
+  --color-forest-300: #57bd8f;
+
+  --color-lime-700: #6f9c1f;
+  --color-lime-600: #96d63c;
+  --color-lime-500: #b7f25a;
+  --color-lime-400: #c9fb7d;
+  --color-lime-300: #ddffa9;
+  --color-lime-100: #f2fcdc;
+
+  --color-cream-50: #fdfbf5;
+  --color-cream-100: #f8f3e8;
+  --color-cream-200: #efe7d5;
+  --color-cream-300: #e2d6bd;
+
+  --color-ink: #0c1a13;
+  --color-ink-soft: #24382c;
+  --color-sage-700: #3b4f44;
+  --color-sage-600: #4d6357;
+  --color-sage-500: #657a6d;
+  --color-sage-400: #7d9488;
+  --color-sage-300: #a8b8ad;
+  --color-sage-200: #cbd6cd;
+
+  /* Semantic: money saved vs money spent */
+  --color-save: #166045;
+  --color-save-soft: #e7f5ec;
+  --color-spend: #b4351f;
+  --color-spend-soft: #fdece8;
+  --color-warn: #a16207;
+  --color-warn-soft: #fdf3dd;
+
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", SFMono-Regular, Menlo, monospace;
+
+  --radius-4xl: 2rem;
+  --radius-5xl: 2.75rem;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-spring: linear(
+    0,
+    0.007 1.1%,
+    0.029 2.2%,
+    0.143 4.9%,
+    0.38 8.1%,
+    0.92 14.2%,
+    1.25 17.9%,
+    1.38 20.3%,
+    1.42 22.2%,
+    1.39 25.4%,
+    1.29 30.9%,
+    1.09 42.3%,
+    1.03 49.9%,
+    1
+  );
+
+  --shadow-card: 0 1px 2px rgba(12, 26, 19, 0.04), 0 8px 24px -12px rgba(12, 26, 19, 0.12);
+  --shadow-lift: 0 2px 4px rgba(12, 26, 19, 0.05), 0 24px 48px -20px rgba(12, 26, 19, 0.22);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* ------------------------------------------------------------------ *
+ * Base
+ * ------------------------------------------------------------------ */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    overflow-x: clip;
+    scroll-padding-top: 6rem;
+  }
+
+  body {
+    background: var(--color-cream-50);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-lime-300);
+    color: var(--color-forest-900);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-forest-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Prices read as a table, so they align on the decimal, not the left edge. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Components
+ * ------------------------------------------------------------------ */
+@layer components {
+  .surface {
+    background: #fff;
+    border: 1px solid var(--color-cream-200);
+    border-radius: 1.25rem;
+    box-shadow: var(--shadow-card);
+  }
+
+  .surface-quiet {
+    background: var(--color-cream-100);
+    border: 1px solid var(--color-cream-200);
+    border-radius: 1.25rem;
+  }
+
+  .hairline {
+    border-color: color-mix(in srgb, var(--color-sage-200) 70%, transparent);
+  }
+
+  .field {
+    width: 100%;
+    background: #fff;
+    border: 1px solid var(--color-cream-300);
+    border-radius: 0.75rem;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.9rem;
+    color: var(--color-ink);
+    transition:
+      border-color 0.18s var(--ease-out-expo),
+      box-shadow 0.18s var(--ease-out-expo);
+  }
+
+  .field::placeholder {
+    color: var(--color-sage-400);
+  }
+
+  .field:focus {
+    outline: none;
+    border-color: var(--color-forest-400);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-forest-400) 14%, transparent);
+  }
+
+  /* Diagonal hatch used behind "sample data" so it reads as placeholder even
+     in a greyscale screenshot or a printout. */
+  .sample-hatch {
+    background-image: repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-warn) 9%, transparent) 0 6px,
+      transparent 6px 12px
+    );
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Motion
+ * ------------------------------------------------------------------ */
+@layer utilities {
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .mask-fade-r {
+    mask-image: linear-gradient(to right, #000 82%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
