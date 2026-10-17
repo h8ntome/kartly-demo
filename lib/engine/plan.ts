@@ -10,7 +10,8 @@ import {
   type StoreQuote,
 } from "@/lib/engine/quotes";
 import { cheapestPack, type PackChoice } from "@/lib/engine/pricing";
-import { cherryPickFloor, findBestSplit, type SplitPlan } from "@/lib/engine/optimizer";
+import { cherryPickFloor } from "@/lib/engine/optimizer";
+import { findBestPlan, type MultiPlan, type PlanOrder } from "@/lib/engine/multi";
 
 /**
  * Top-level comparison: basket in, everything the product story needs out.
@@ -44,12 +45,6 @@ export interface CheaperAlternative {
   note?: string;
 }
 
-/**
- * A second delivery slot is an inconvenience, not just a rupee figure, so a
- * split only gets recommended when it pays for itself properly.
- */
-export const MIN_SPLIT_SAVING = 150;
-
 export interface BasketPlan {
   items: BasketItem[];
   quotes: StoreQuote[];
@@ -57,10 +52,12 @@ export interface BasketPlan {
   bestSingle: StoreQuote | null;
   /** Most expensive complete option — the "shopping badly" baseline. */
   worstSingle: StoreQuote | null;
-  /** Best two-store split, or null when no split is possible. */
-  split: SplitPlan | null;
-  /** True when the split saves enough to be worth a second delivery slot. */
-  splitRecommended: boolean;
+  /**
+   * The cheapest way to buy the whole basket, however many shops that takes.
+   * This is the only recommendation the product makes: the shopper is never
+   * asked to choose a shop count.
+   */
+  bestPlan: MultiPlan | null;
   /** Unreachable floor: every line at its cheapest store, no delivery. */
   cherryPick: number;
   /** Per line × per store price matrix. */
@@ -68,7 +65,7 @@ export interface BasketPlan {
   savings: {
     /** Best single store vs the dearest complete store. */
     vsWorstSingle: number;
-    /** Split vs best single store. */
+    /** What splitting the basket across shops is worth vs the best single store. */
     splitVsSingle: number;
     /** Best option overall (split if it wins, else single). */
     bestTotal: number;
@@ -81,16 +78,15 @@ export interface BasketPlan {
     /** Gap between the best option and the unreachable cherry-picked floor. */
     remainingGap: number;
   };
-  /** Lines no single store can supply, so a split is mandatory. */
+  /** Lines no store in the catalogue can supply. */
   unfulfillable: Array<{ canonicalId: string; name: string; glyph: string }>;
   alternatives: CheaperAlternative[];
   /** Minutes since the oldest price used in this plan. */
   oldestPriceMins: number;
-  /** False when the split answer came from the hill climb, not exhaustive search. */
+  /** False when the winning plan came from the local search, not exhaustive search. */
   exact: boolean;
   meta: {
-    pairsEvaluated: number;
-    pairsSkipped: number;
+    setsEvaluated: number;
     storeCount: number;
   };
 }
@@ -272,41 +268,29 @@ export function compareBasket(
     ? eligible.reduce((worst, q) => (q.total > worst.total ? q : worst))
     : null;
 
-  const splitSearch = findBestSplit(items, input, index);
-  const split = splitSearch.best;
-  if (split && bestSingle) split.savingsVsSingle = Math.round(bestSingle.total - split.total);
+  const planSearch = findBestPlan(items, input, index, {
+    bestSingleTotal: bestSingle?.total ?? Infinity,
+  });
+  const bestPlan = planSearch.best;
 
   const cherry = cherryPickFloor(items, input, index);
-  const splitWins = !!split && split.savingsVsSingle >= MIN_SPLIT_SAVING;
-  const bestTotal = splitWins ? split!.total : (bestSingle?.total ?? 0);
-  const deliveryPaid = splitWins
-    ? split!.delivery
-    : (bestSingle?.delivery ?? 0);
-  // Normalise whichever plan is winning into one flat line list, so promo
-  // totals, freshness and swap suggestions all read from a single shape.
-  const usable: AlternativeSourceLine[] = splitWins
-    ? [
-        ...split!.primary.lines.map((line) => ({
+  const bestTotal = bestPlan?.total ?? (bestSingle?.total ?? 0);
+  const deliveryPaid = bestPlan?.delivery ?? (bestSingle?.delivery ?? 0);
+  // One flat line list for the winning plan, so promo totals, freshness and
+  // swap suggestions all read from a single shape however many shops it uses.
+  const usable: AlternativeSourceLine[] = bestPlan
+    ? bestPlan.orders.flatMap((order: PlanOrder) =>
+        order.lines.map((line) => ({
           lineId: line.lineId,
           canonicalId: line.canonicalId,
           name: line.name,
           glyph: line.glyph,
           cost: line.choice.cost,
           listCost: line.choice.listCost,
-          storeId: split!.primaryStoreId,
+          storeId: order.storeId,
           freshnessMins: line.choice.offer.freshnessMins,
         })),
-        ...split!.secondary.lines.map((line) => ({
-          lineId: line.lineId,
-          canonicalId: line.canonicalId,
-          name: line.name,
-          glyph: line.glyph,
-          cost: line.choice.cost,
-          listCost: line.choice.listCost,
-          storeId: split!.secondaryStoreId,
-          freshnessMins: line.choice.offer.freshnessMins,
-        })),
-      ]
+      )
     : (bestSingle?.lines ?? []).map((line) => ({
         lineId: line.lineId,
         canonicalId: line.canonicalId,
@@ -344,13 +328,12 @@ export function compareBasket(
     quotes,
     bestSingle,
     worstSingle,
-    split: split ?? null,
-    splitRecommended: splitWins,
+    bestPlan,
     cherryPick: cherry.total,
     matrix,
     savings: {
       vsWorstSingle: bestSingle && worstSingle ? Math.round(worstSingle.total - bestSingle.total) : 0,
-      splitVsSingle: split ? split.savingsVsSingle : 0,
+      splitVsSingle: bestPlan ? Math.max(0, Math.round((bestSingle?.total ?? 0) - bestPlan.total)) : 0,
       bestTotal,
       bestVsWorst: worstSingle ? Math.round(worstSingle.total - bestTotal) : 0,
       deliveryPaid,
@@ -360,10 +343,9 @@ export function compareBasket(
     unfulfillable,
     alternatives: findAlternatives(usable, items, input, index),
     oldestPriceMins,
-    exact: splitSearch.best?.exact ?? true,
+    exact: bestPlan?.exact ?? true,
     meta: {
-      pairsEvaluated: splitSearch.pairsEvaluated,
-      pairsSkipped: splitSearch.pairsSkipped,
+      setsEvaluated: planSearch.setsEvaluated,
       storeCount: stores.length,
     },
   };
@@ -388,4 +370,5 @@ export function toBasketItems(
   return items;
 }
 
-export type { BasketItem, StoreQuote, SplitPlan, PackChoice };
+export type { BasketItem, StoreQuote, PackChoice };
+export type { MultiPlan, PlanOrder };

@@ -13,6 +13,6 @@ for (const q of plan.quotes) {
   for (const l of q.lines) console.log(`   ${l.glyph} ${l.name} req=${l.requested}${l.unit} -> ${l.packs}x ${l.offer.packLabel} (${l.offer.brand}) = ${l.cost}`);
   for (const m of q.missing) console.log(`   MISSING ${m.name} ${m.reason} ${m.detail??''}`);
 }
-console.log('\nSPLIT', plan.split && {p:plan.split.primaryStoreId,s:plan.split.secondaryStoreId,total:plan.split.total,pl:plan.split.primary.lines.length,sl:plan.split.secondary.lines.length});
+console.log('\nPLAN', plan.bestPlan && { shops: plan.bestPlan.orders.map((o) => o.storeId), total: plan.bestPlan.total, counts: plan.bestPlan.orders.map((o) => o.lines.length) });
 }
 main();

@@ -66,12 +66,17 @@ function SavingsPill({ plan }: { plan: BasketPlan | null }) {
             transition={{ duration: 0.18 }}
             className="absolute right-0 top-[calc(100%+8px)] z-50 block w-64 rounded-xl border border-cream-200 bg-white p-3 text-left text-[0.76rem] font-normal text-sage-600 shadow-[var(--shadow-lift)]"
           >
-            Best single store: <strong className="text-ink">{formatPKRShort(plan.bestSingle.total)}</strong>
-            {plan.split && (
+            Cheapest plan
+            {plan.bestPlan
+              ? ` (${plan.bestPlan.storeCount} ${plan.bestPlan.storeCount === 1 ? "shop" : "shops"})`
+              : ""}
+            {": "}
+            <strong className="text-ink">{formatPKRShort(plan.savings.bestTotal)}</strong>
+            {plan.bestPlan && plan.bestPlan.storeCount > 1 && plan.bestSingle && (
               <>
                 <br />
-                Best split: <strong className="text-ink">{formatPKRShort(plan.split.total)}</strong>
-                {plan.splitRecommended ? " — recommended" : " — not worth a second delivery"}
+                Best single store: <strong className="text-ink">{formatPKRShort(plan.bestSingle.total)}</strong>
+                {` — ${formatPKRShort(plan.bestPlan.savingsVsSingle)} more`}
               </>
             )}
             <br />

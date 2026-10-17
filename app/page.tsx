@@ -92,7 +92,7 @@ export default async function HomePage() {
             <p className="mt-5 max-w-xl text-[1.05rem] leading-relaxed text-sage-600">
               Kartly prices your whole basket at every supermarket in the city — pack sizes, offers,
               stock and delivery included — then tells you the cheapest practical way to buy it.
-              Sometimes that is one store. Often it is two.
+              One shop, two shops, sometimes four: you do not choose, the arithmetic does.
             </p>
 
             <div className="mt-7 max-w-xl">
@@ -147,6 +147,25 @@ export default async function HomePage() {
                 </div>
 
                 <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl bg-forest-900 px-3.5 py-3">
+                    <dt className="text-[0.72rem] uppercase tracking-[0.08em] text-lime-400">
+                      Kartly&apos;s plan · {plan.bestPlan?.storeCount ?? 1}{" "}
+                      {plan.bestPlan && plan.bestPlan.storeCount === 1 ? "shop" : "shops"}
+                    </dt>
+                    <dd className="mt-1 flex items-center justify-between gap-2 text-cream-50">
+                      <span className="text-[0.82rem]">
+                        {plan.bestPlan
+                          ? snapshot.stores
+                              .filter((s) => plan.bestPlan!.orders.some((order) => order.storeId === s.id))
+                              .map((s) => s.name)
+                              .join(" + ")
+                          : "not available"}
+                      </span>
+                      <span className="tabular font-semibold">
+                        {plan.bestPlan ? formatPKR(plan.bestPlan.total) : "—"}
+                      </span>
+                    </dd>
+                  </div>
                   <div className="rounded-xl bg-cream-100 px-3.5 py-3">
                     <dt className="text-[0.72rem] uppercase tracking-[0.08em] text-sage-500">
                       Best single store
@@ -155,24 +174,6 @@ export default async function HomePage() {
                       <StoreBadge storeId={plan.bestSingle!.storeId} size="sm" showName />
                       <span className="tabular font-semibold text-ink">
                         {formatPKR(plan.bestSingle!.total)}
-                      </span>
-                    </dd>
-                  </div>
-                  <div className="rounded-xl bg-forest-900 px-3.5 py-3">
-                    <dt className="text-[0.72rem] uppercase tracking-[0.08em] text-lime-400">
-                      Best two-store split
-                    </dt>
-                    <dd className="mt-1 flex items-center justify-between gap-2 text-cream-50">
-                      <span className="text-[0.82rem]">
-                        {plan.split
-                          ? snapshot.stores
-                              .filter((s) => s.id === plan.split!.primaryStoreId || s.id === plan.split!.secondaryStoreId)
-                              .map((s) => s.name)
-                              .join(" + ")
-                          : "not available"}
-                      </span>
-                      <span className="tabular font-semibold">
-                        {plan.split ? formatPKR(plan.split.total) : "—"}
                       </span>
                     </dd>
                   </div>
@@ -213,9 +214,14 @@ export default async function HomePage() {
                 not the one you would have guessed.
               </p>
               <p>
-                Splitting across two shops saves {plan ? formatPKR(plan.savings.splitVsSingle) : "—"}{" "}
-                here — but only after a second delivery fee, which is exactly the arithmetic Kartly
-                does and shoppers almost never do.
+                Splitting this list across {plan?.bestPlan
+                  ? plan.bestPlan.storeCount === 1
+                    ? "one shop"
+                    : `${plan.bestPlan.storeCount} shops`
+                  : "more than one shop"}{" "}
+                saves {plan ? formatPKR(plan.savings.splitVsSingle) : "—"} here — but only after
+                every extra delivery fee, which is exactly the arithmetic Kartly does and shoppers
+                almost never do.
               </p>
             </div>
             <div className="mt-7">
@@ -231,8 +237,7 @@ export default async function HomePage() {
             </h3>
             <p className="mb-4 mt-1 text-[0.82rem] text-sage-600">
               Same basket, same nine stores, four different totals.
-            </p>
-            {plan && <SavingsLedger plan={plan} />}
+            </p>            {plan && <SavingsLedger plan={plan} />}
           </Reveal>
         </div>
       </section>

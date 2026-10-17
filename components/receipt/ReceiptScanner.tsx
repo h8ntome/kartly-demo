@@ -8,6 +8,7 @@ import { Button, LinkButton, Tag } from "@/components/ui/Primitives";
 import { useBasket } from "@/lib/basket/store";
 import { useCatalog, usePlan } from "@/lib/basket/use-catalog";
 import { rankProducts } from "@/lib/api/normalize";
+import { STORE_MAP } from "@/lib/catalog/stores";
 import { formatPKR, formatPKRShort, pluralise } from "@/lib/engine/format";
 import { formatQuantity, type ProductDetail, type Unit } from "@/lib/types";
 import type { ReceiptParse } from "@/lib/receipt/parse";
@@ -564,8 +565,12 @@ export function ReceiptScanner({ samples }: { samples: Sample[] }) {
                       tone="muted"
                     />
                   ))}
-                {plan?.split && plan.splitRecommended && (
-                  <Row label="Needs two stores" value={formatPKRShort(plan.split.total)} tone="muted" />
+                {plan?.bestPlan && plan.bestPlan.storeCount > 1 && (
+                  <Row
+                    label={`Cheapest across ${plan.bestPlan.storeCount} shops`}
+                    value={plan.bestPlan.orders.map((order) => STORE_MAP[order.storeId]?.name ?? order.store.name).join(" + ")}
+                    tone="muted"
+                  />
                 )}
               </dl>
               {unmatchedValue > 0 && (

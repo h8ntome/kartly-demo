@@ -8,6 +8,7 @@
 
 import { buildOfferIndex } from "@/lib/engine/quotes";
 import { findBestSplit } from "@/lib/engine/optimizer";
+import { findBestPlan, MAX_PLAN_STORES } from "@/lib/engine/multi";
 import { sampleProvider } from "@/lib/api/providers/sample";
 import { compareBasket, toBasketItems } from "@/lib/engine/plan";
 import { deliveryFor, cheapestPack, lineCost, freePacks } from "@/lib/engine/pricing";
@@ -87,27 +88,30 @@ async function main() {
       ok(plan.bestSingle!.total === minTotal, "best single store is the cheapest eligible quote");
     }
 
-    // Split claims
-    if (plan.split) {
-      const split = plan.split;
-      const splitSub = split.primary.subtotal + split.secondary.subtotal;
-      ok(
-        Math.abs(split.total - (splitSub + split.primary.delivery + split.secondary.delivery)) < 1,
-        "split total equals both subtotals plus both delivery fees",
-      );
-      ok(split.savingsVsSingle === plan.bestSingle!.total - split.total, "split savings equals the real difference");
-      ok(split.primary.storeId !== split.secondary.storeId, "split uses two different stores");
-      ok(split.primary.lines.length > 0 && split.secondary.lines.length > 0, "both halves of the split are non-empty");
-      const covered = split.primary.lines.length + split.secondary.lines.length;
-      ok(covered === items.length, "split covers every line exactly once", `${covered} of ${items.length}`);
-      ok(
-        split.primary.subtotal >= stores.find((s) => s.id === split.primaryStoreId)!.minOrder,
-        "primary order clears its minimum basket",
-      );
-      ok(
-        split.secondary.subtotal >= stores.find((s) => s.id === split.secondaryStoreId)!.minOrder,
-        "secondary order clears its minimum basket",
-      );
+    // The recommended plan: whatever number of shops it uses, the arithmetic
+    // has to close and it has to beat or match every single-shop quote.
+    if (plan.bestPlan) {
+      const best = plan.bestPlan;
+      const sub = best.orders.reduce((sum, order) => sum + order.subtotal, 0);
+      const del = best.orders.reduce((sum, order) => sum + order.delivery, 0);
+      ok(Math.abs(best.total - (sub + del)) < 1, "plan total equals every subtotal plus every delivery fee");
+      ok(best.storeCount === best.orders.length, "plan reports the shop count it actually uses");
+      ok(new Set(best.orders.map((o) => o.storeId)).size === best.storeCount, "no shop is ordered from twice");
+      ok(best.orders.every((order) => order.lines.length > 0), "every order in the plan is non-empty");
+      const covered = best.orders.reduce((sum, order) => sum + order.lines.length, 0);
+      ok(covered === items.length, "the plan covers every line exactly once", `${covered} of ${items.length}`);
+      const lineIds = best.orders.flatMap((order) => order.lines.map((line) => line.lineId));
+      ok(new Set(lineIds).size === lineIds.length, "no line is bought twice");
+      for (const order of best.orders) {
+        const store = stores.find((s) => s.id === order.storeId)!;
+        ok(order.subtotal >= store.minOrder, `${store.name}: order clears its minimum basket`);
+        const lineSum = order.lines.reduce((sum, line) => sum + line.choice.cost, 0);
+        ok(Math.abs(lineSum - order.subtotal) < 1, `${store.name}: order subtotal equals its line sum`);
+      }
+      if (plan.bestSingle) {
+        ok(best.total <= plan.bestSingle.total + 1, "the plan never costs more than the best single store", `${money(best.total)} vs ${money(plan.bestSingle.total)}`);
+        ok(best.savingsVsSingle === Math.max(0, plan.bestSingle.total - best.total), "plan savings equals the real difference vs the best single store");
+      }
     }
 
     // Floor sanity: cherry-picking can never beat a real plan.
@@ -127,9 +131,9 @@ async function main() {
 
     console.log(
       `  best single: ${plan.bestSingle?.store.name} ${money(plan.bestSingle?.total ?? 0)}` +
-        ` | split: ${plan.split ? `${plan.split.primaryStoreId}+${plan.split.secondaryStoreId} ${money(plan.split.total)} (saves ${money(plan.savings.splitVsSingle)})` : "not worth it"}` +
+        ` | plan: ${plan.bestPlan ? `${plan.bestPlan.orders.map((o) => o.storeId).join("+")} ${money(plan.bestPlan.total)} (${plan.bestPlan.storeCount} shops, saves ${money(plan.savings.splitVsSingle)} vs single)` : "none"}` +
         ` | floor ${money(plan.cherryPick)} | worst ${money(plan.worstSingle?.total ?? 0)}` +
-        ` | pairs ${plan.meta.pairsEvaluated} evaluated / ${plan.meta.pairsSkipped} pruned`,
+        ` | ${plan.meta.setsEvaluated} assignments climbed${plan.exact ? "" : " (best option found)"}`,
     );
   }
 
@@ -189,6 +193,79 @@ async function main() {
       Math.abs(fast.best!.total - handBest) < 1,
       "optimiser matches a hand-enumerated brute force",
       `${money(fast.best!.total)} vs ${money(handBest)}`,
+    );
+  }
+
+  /* -------------------------------------------- multi-store plan search */
+  group("Multi-store plan correctness");
+  {
+    const rows = TEASER_BASKET.slice(0, 5).map((entry, i) => ({ id: `m-${i}`, canonicalId: entry.canonicalId, quantity: entry.quantity }));
+    const items = toBasketItems(rows, products);
+    const input = { items, products, stores };
+    const index = buildOfferIndex(products.values());
+    const found = findBestPlan(items, input, index).best;
+
+    // Hand-enumerate every assignment of every line to every store — 9^5
+    // baskets, any shop count included — and confirm the search matches the
+    // true optimum, not just the best pair.
+    const cost: (number | null)[][] = items.map((item) =>
+      stores.map((store) => {
+        const offers = index.get(item.canonicalId)?.get(store.id) ?? [];
+        return cheapestPack(offers, item.quantity, item.unit)?.cost ?? null;
+      }),
+    );
+    const assign = new Array<number>(items.length).fill(0);
+    let handBest = Infinity;
+    let handShops = 0;
+    const combos = stores.length ** items.length;
+    for (let mask = 0; mask < combos; mask++) {
+      let rest = mask;
+      for (let i = 0; i < items.length; i++) {
+        assign[i] = rest % stores.length;
+        rest = Math.floor(rest / stores.length);
+      }
+      const subtotals = new Array<number>(stores.length).fill(0);
+      let possible = true;
+      for (let i = 0; i < items.length; i++) {
+        const c = cost[i][assign[i]];
+        if (c === null) {
+          possible = false;
+          break;
+        }
+        subtotals[assign[i]] += c;
+      }
+      if (!possible) continue;
+      let total = 0;
+      let shops = 0;
+      let feasible = true;
+      for (let s = 0; s < stores.length; s++) {
+        if (subtotals[s] <= 0) continue;
+        if (subtotals[s] < stores[s].minOrder) {
+          feasible = false;
+          break;
+        }
+        shops += 1;
+        total += subtotals[s] + deliveryFor(stores[s], subtotals[s]).fee;
+      }
+      if (feasible && total < handBest) {
+        handBest = total;
+        handShops = shops;
+      }
+    }
+
+    ok(!!found, "the multi-store search finds a plan for a small basket");
+    ok(
+      !!found && Math.abs(found.total - handBest) < 1,
+      "multi-store plan matches a hand-enumerated optimum over every shop count",
+      `${money(found?.total ?? 0)} vs ${money(handBest)} (${handShops} shops)`,
+    );
+    ok(
+      !!found && found.storeCount <= MAX_PLAN_STORES,
+      "the plan never asks for more shops than the cap allows",
+      `${found?.storeCount} shops`,
+    );
+    console.log(
+      `  hand optimum ${money(handBest)} across ${handShops} shops vs engine ${money(found?.total ?? 0)} across ${found?.storeCount ?? 0} shops (${combos.toLocaleString("en-PK")} assignments checked)`,
     );
   }
 

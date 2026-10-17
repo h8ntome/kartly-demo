@@ -4,7 +4,8 @@
 
 Kartly prices a whole grocery basket at nine Karachi supermarkets and works out the cheapest
 practical way to buy it — pack sizes, offers, stock and delivery included. Sometimes the answer is
-one store. Often it is a two-store split that only pays once you count a second delivery fee, which
+one store. Often it is a split across three or four that only pays once you count the extra delivery
+fees, which
 is exactly the arithmetic shoppers never do by hand.
 
 This repository is the working demo: a real comparison engine, a real data layer with a swappable
@@ -41,7 +42,7 @@ basket lives in `localStorage`.
 | `/` | Worked example: one 12-line basket priced at all nine stores, the widest per-product price gaps, and the store fee rules |
 | `/search` | Search and filter the catalogue; every product shows the cheapest store and the nine-store spread |
 | `/product/[id]` | One product across all nine stores — pack sizes, unit prices, offers, stock, price freshness |
-| `/basket` | The optimiser: line editor, best single store, best split, price grid, savings ledger, cheaper swaps |
+| `/basket` | The optimiser: line editor, the cheapest plan (any number of shops), price grid, savings ledger, cheaper swaps |
 | `/stores` | All nine supermarkets with delivery fee, free-delivery threshold, minimum order, and a measured price index |
 | `/receipt` | Receipt → basket. In-browser OCR (or pasted text), line-by-line matching with confidence, review, then straight into the basket |
 
@@ -56,7 +57,7 @@ The same engine the browser runs, over JSON — for anything that cannot ship th
 | `GET /api/stores` | Store metadata (fees, thresholds, coverage) |
 | `GET /api/products?q=&category=&stores=&sort=` | Ranked catalogue summaries with facets |
 | `GET /api/products/:id` | One product with all offers |
-| `POST /api/quote` | `{ "items": [{ "canonicalId", "quantity" }] }` → full plan: quotes, split, matrix, savings |
+| `POST /api/quote` | `{ "items": [{ "canonicalId", "quantity" }] }` → full plan: quotes, cheapest plan, matrix, savings |
 | `POST /api/receipt/parse` | `{ "text": "…" }` → matched lines with confidence and reasons |
 
 ---
@@ -69,7 +70,7 @@ Four layers that are not allowed to know about each other:
 lib/types.ts              the canonical domain model — stores, units, offers, products
 lib/catalog/              the sample catalogue (9 stores, 62 products, ~1,290 offers)
 lib/api/                  provider layer: sample today, REST tomorrow, one interface
-lib/engine/               pure arithmetic: pricing → quotes → split search → plan
+lib/engine/               pure arithmetic: pricing → quotes → split + multi-shop search → plan
 lib/basket/, components/  state and UI
 ```
 
@@ -90,13 +91,11 @@ lib/basket/, components/  state and UI
   the missing count, because "cheapest" that cannot deliver your list is a lie.
 - **Delivery.** Flat fee, free-delivery threshold and minimum order per store, all of which can flip
   the winner.
-- **Split search.** Every store pair is priced, with a lower-bound prune; the search reports how
-  many pairs it evaluated and how many it skipped, and falls back to a hill climb (flagged as
-  non-exact) if a basket ever gets big enough to need one.
-- **An honest floor.** The cherry-picked total — every line at its cheapest store, no delivery — is
-  printed next to the recommendation so the savings claim is never flattered.
-- **A split needs to be worth it.** A second delivery slot is an inconvenience, not just a rupee
-  figure, so splits under Rs 150 of saving are computed but not recommended.
+- **The cheapest plan, whatever shop count it needs.** Every store pair is priced exhaustively
+  (with a lower-bound prune), then a local search over whole-basket assignments opens, closes and
+  relocates shops until nothing improves, up to four shops. There is no "is splitting worth it?"
+  question to answer: the cheapest total is the recommendation, and the UI says "best option found"
+  whenever the answer came from the local search rather than an exhaustive one.
 
 ---
 
@@ -123,7 +122,7 @@ npm test
 ```
 
 The harness drives the real engine over the real sample catalogue and asserts the things a demo
-must not get wrong: quote totals reconcile with subtotal + delivery, the split never costs more than
+must not get wrong: quote totals reconcile with subtotal + delivery, the cheapest plan never costs more than
 the best single store, pack rounding never under-buys, pruned and unpruned split searches agree,
 promo maths is exact, unavailable stock is never quoted, and both sample receipts come back with the
 right lines matched.

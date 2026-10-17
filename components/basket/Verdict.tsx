@@ -6,174 +6,47 @@ import { StoreBadge } from "@/components/brand/Logo";
 import { GrowBar } from "@/components/motion/Motion";
 import { formatPKR, formatPKRShort, freshnessLabel } from "@/lib/engine/format";
 import { STORE_MAP } from "@/lib/catalog/stores";
-import type { BasketPlan, SplitPlan } from "@/lib/engine/plan";
+import type { BasketPlan } from "@/lib/engine/plan";
+import type { MultiPlan, PlanOrder } from "@/lib/engine/multi";
 import type { StoreQuote } from "@/lib/engine/quotes";
 
 /**
  * The verdict.
  *
- * Three claims, each with its arithmetic visible: the cheapest single store,
- * the best two-store split, and what the same basket would cost at the dearest
- * store that could fill it. Nothing here is a rounded marketing number — every
- * figure is a total the engine actually computed.
+ * One recommendation, with its arithmetic visible: the cheapest way to buy the
+ * whole basket, whichever shops that turns out to be. The shopper is not asked
+ * to decide how many stores to use — the engine decides, and the only thing
+ * shown is the answer plus what it beats.
  */
 
-export function BestSingleCard({ plan }: { plan: BasketPlan }) {
-  const quote = plan.bestSingle;
-  if (!quote) {
-    return (
-      <div className="rounded-2xl border border-warn/25 bg-warn-soft p-5">
-        <h3 className="font-display text-lg text-forest-950">No single store can fill this basket</h3>
-        <p className="mt-2 text-sm leading-relaxed text-sage-600">
-          At least one line is stocked by only one shop, and no shop carries everything on your list.
-          The split below is the only way to buy all of it.
-        </p>
-      </div>
-    );
-  }
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="overflow-hidden rounded-2xl border border-forest-300/40 bg-white shadow-[var(--shadow-lift)]"
-    >
-      <div className="flex items-center gap-3 border-b border-cream-200 bg-forest-900 px-5 py-3.5">
-        <span className="grid h-7 w-7 place-items-center rounded-full bg-lime-500 text-[0.8rem] font-bold text-forest-900">
-          1
-        </span>
-        <h3 className="font-display text-[1.05rem] font-semibold text-cream-50">
-          Cheapest single store
-        </h3>
-        <Tag tone="save" className="ml-auto">
-          saves {formatPKRShort(plan.savings.bestVsWorst)}
-        </Tag>
-      </div>
-
-      <div className="flex items-center gap-4 px-5 py-5">
-        <StoreBadge storeId={quote.storeId} size="lg" />
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-xl font-semibold leading-tight text-forest-950">
-            {quote.store.name}
-          </p>
-          <p className="text-[0.8rem] text-sage-500">
-            {quote.store.eta} · {quote.lines.length} items
-            {quote.discount > 0 && ` · offers worth ${formatPKR(quote.discount)}`}
-          </p>
-        </div>
-        <div className="text-right">
-          <Price amount={quote.total} size="lg" tone="save" />
-          <p className="mt-0.5 text-[0.76rem] text-sage-500">
-            {formatPKR(quote.subtotal)} +{" "}
-            {quote.delivery === 0 ? (
-              <span className="font-semibold text-save">free delivery</span>
-            ) : (
-              `${formatPKR(quote.delivery)} delivery`
-            )}
-          </p>
-        </div>
-      </div>
-
-      {quote.gapToFree > 0 && (
-        <p className="border-t border-cream-200 bg-cream-50 px-5 py-2.5 text-[0.78rem] text-sage-600">
-          Add {formatPKR(quote.gapToFree)} more at {quote.store.name} to make delivery free.
-        </p>
-      )}
-    </motion.div>
-  );
-}
-
-export function SplitCard({ plan }: { plan: BasketPlan }) {
-  const split = plan.split;
-  if (!split) return null;
-
-  const recommended = plan.splitRecommended && split.savingsVsSingle > 0;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-      className={`overflow-hidden rounded-2xl border bg-white shadow-[var(--shadow-card)] ${
-        recommended ? "border-lime-600/60" : "border-cream-200"
-      }`}
-    >
-      <div className="flex items-center gap-3 border-b border-cream-200 px-5 py-3.5">
-        <span
-          className={`grid h-7 w-7 place-items-center rounded-full text-[0.8rem] font-bold ${
-            recommended ? "bg-lime-500 text-forest-900" : "bg-cream-200 text-sage-600"
-          }`}
-        >
-          2
-        </span>
-        <h3 className="font-display text-[1.05rem] font-semibold text-forest-950">
-          Split across two stores
-        </h3>
-        <span className="ml-auto">
-          {recommended ? (
-            <Tag tone="save">saves {formatPKR(split.savingsVsSingle)} more</Tag>
-          ) : (
-            <Tag tone="warn">
-              {split.savingsVsSingle > 0
-                ? `only ${formatPKR(split.savingsVsSingle)} better`
-                : "not worth it"}
-            </Tag>
-          )}
-        </span>
-      </div>
-
-      <div className="divide-y divide-cream-200">
-        <SplitHalf assignment={split.primary} label="Main order" />
-        <SplitHalf assignment={split.secondary} label="Top-up order" />
-      </div>
-
-      <div className="flex items-center justify-between gap-4 border-t border-cream-200 bg-cream-50 px-5 py-4">
-        <div className="text-[0.8rem] text-sage-600">
-          {formatPKR(split.subtotal)} goods +{" "}
-          {split.delivery === 0 ? "free delivery" : `${formatPKR(split.delivery)} delivery`}
-          {!plan.exact && <span className="ml-1 text-warn">· best option found</span>}
-        </div>
-        <Price amount={split.total} size="lg" tone={recommended ? "save" : "muted"} />
-      </div>
-
-      {!recommended && split.savingsVsSingle > 0 && (
-        <p className="border-t border-cream-200 px-5 py-2.5 text-[0.78rem] leading-relaxed text-sage-600">
-          Splitting saves {formatPKR(split.savingsVsSingle)} but costs a second delivery slot, so
-          Kartly keeps the single-store plan as the recommendation.
-        </p>
-      )}
-    </motion.div>
-  );
-}
-
-function SplitHalf({
-  assignment,
+/** One shop's order inside the recommended plan. */
+function OrderBlock({
+  order,
   label,
 }: {
-  assignment: SplitPlan["primary"];
+  order: PlanOrder;
   label: string;
 }) {
-  const store = STORE_MAP[assignment.storeId];
   return (
     <div className="px-5 py-4">
       <div className="flex items-center gap-3">
-        <StoreBadge storeId={assignment.storeId} size="md" />
+        <StoreBadge storeId={order.storeId} size="md" />
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-ink">{store?.name}</p>
+          <p className="font-semibold text-ink">{order.store.name}</p>
           <p className="text-[0.76rem] text-sage-500">
-            {label} · {assignment.lines.length} {assignment.lines.length === 1 ? "item" : "items"}
-            {assignment.freeDelivery && " · free delivery"}
+            {label} · {order.lines.length} {order.lines.length === 1 ? "item" : "items"}
+            {order.freeDelivery && " · free delivery"}
           </p>
         </div>
         <div className="text-right text-[0.82rem]">
-          <p className="tabular font-semibold text-ink">{formatPKR(assignment.total)}</p>
+          <p className="tabular font-semibold text-ink">{formatPKR(order.total)}</p>
           <p className="text-[0.72rem] text-sage-500">
-            {assignment.delivery === 0 ? "delivery free" : `+${formatPKR(assignment.delivery)}`}
+            {order.delivery === 0 ? "delivery free" : `+${formatPKR(order.delivery)}`}
           </p>
         </div>
       </div>
       <div className="mt-2.5 flex flex-wrap gap-1.5">
-        {assignment.lines.map((line) => (
+        {order.lines.map((line) => (
           <span
             key={line.lineId}
             title={`${line.name} — ${line.choice.offer.packLabel} at ${line.choice.offer.brand}`}
@@ -186,6 +59,96 @@ function SplitHalf({
         ))}
       </div>
     </div>
+  );
+}
+
+export function BestPlanCard({ plan }: { plan: BasketPlan }) {
+  const best: MultiPlan | null = plan.bestPlan;
+
+  if (!best) {
+    return (
+      <div className="rounded-2xl border border-warn/25 bg-warn-soft p-5">
+        <h3 className="font-display text-lg text-forest-950">No shop can fill this basket</h3>
+        <p className="mt-2 text-sm leading-relaxed text-sage-600">
+          At least one line on your list is out of stock everywhere in the catalogue right now.
+          Everything else is priced below; the missing lines are listed next to your list.
+        </p>
+      </div>
+    );
+  }
+
+  const split = best.storeCount > 1;
+  const beatSingle = best.savingsVsSingle > 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="overflow-hidden rounded-2xl border border-lime-600/60 bg-white shadow-[var(--shadow-lift)]"
+    >
+      <div className="flex items-center gap-3 border-b border-cream-200 bg-forest-900 px-5 py-3.5">
+        <span className="grid h-7 w-7 place-items-center rounded-full bg-lime-500 text-[0.8rem] font-bold text-forest-900">
+          ✓
+        </span>
+        <h3 className="font-display text-[1.05rem] font-semibold text-cream-50">
+          Cheapest way to buy it
+        </h3>
+        <Tag tone="save" className="ml-auto">
+          saves {formatPKRShort(plan.savings.bestVsWorst)}
+        </Tag>
+      </div>
+
+      <div className="divide-y divide-cream-200">
+        {best.orders.map((order, index) => (
+          <OrderBlock
+            key={order.storeId}
+            order={order}
+            label={
+              best.storeCount === 1
+                ? "Single order"
+                : `Order ${index + 1} of ${best.storeCount}`
+            }
+          />
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between gap-4 border-t border-cream-200 bg-cream-50 px-5 py-4">
+        <div className="text-[0.8rem] text-sage-600">
+          {formatPKR(best.subtotal)} goods +{" "}
+          {best.delivery === 0 ? (
+            <span className="font-semibold text-save">free delivery</span>
+          ) : (
+            `${formatPKR(best.delivery)} delivery`
+          )}
+          <span className="ml-1">
+            across {best.storeCount} {best.storeCount === 1 ? "shop" : "shops"}
+          </span>
+          {!plan.exact && <span className="ml-1 text-warn">· best option found</span>}
+        </div>
+        <Price amount={best.total} size="lg" tone="save" />
+      </div>
+
+      {split && beatSingle && plan.bestSingle && (
+        <p className="border-t border-cream-200 px-5 py-2.5 text-[0.78rem] leading-relaxed text-sage-600">
+          Buying the same list at {plan.bestSingle.store.name} alone costs{" "}
+          {formatPKR(plan.bestSingle.total)} — {formatPKR(best.savingsVsSingle)} more, after every
+          delivery fee is counted.
+        </p>
+      )}
+      {!split && plan.bestSingle && (
+        <p className="border-t border-cream-200 px-5 py-2.5 text-[0.78rem] leading-relaxed text-sage-600">
+          One shop is the cheapest answer here: splitting this list anywhere else costs more once a
+          second delivery fee is added.
+        </p>
+      )}
+      {split && !beatSingle && (
+        <p className="border-t border-cream-200 px-5 py-2.5 text-[0.78rem] leading-relaxed text-sage-600">
+          Splitting only just matches the best single shop on price; it is kept because it is still
+          the cheapest total the engine found.
+        </p>
+      )}
+    </motion.div>
   );
 }
 
@@ -262,12 +225,15 @@ export function SavingsLedger({ plan }: { plan: BasketPlan }) {
       value: plan.bestSingle?.total ?? 0,
       tone: "default" as const,
     },
-    ...(plan.split
+    ...(plan.bestPlan
       ? [
           {
-            label: `Best split (${STORE_MAP[plan.split.primaryStoreId]?.name} + ${STORE_MAP[plan.split.secondaryStoreId]?.name})`,
-            value: plan.split.total,
-            tone: plan.splitRecommended ? ("save" as const) : ("muted" as const),
+            label:
+              plan.bestPlan.storeCount === 1
+                ? "Kartly's cheapest plan"
+                : `Kartly's cheapest plan (${plan.bestPlan.storeCount} shops)`,
+            value: plan.bestPlan.total,
+            tone: "save" as const,
           },
         ]
       : []),
@@ -306,4 +272,9 @@ export function SavingsLedger({ plan }: { plan: BasketPlan }) {
       </div>
     </dl>
   );
+}
+
+/** Store names for a plan, in order, e.g. "Imtiaz + Naheed". */
+export function planNames(plan: MultiPlan): string {
+  return plan.orders.map((order) => STORE_MAP[order.storeId]?.name ?? order.store.name).join(" + ");
 }

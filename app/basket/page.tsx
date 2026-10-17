@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { Button, EmptyState, LinkButton, Skeleton, Tag } from "@/components/ui/Primitives";
 import { LineEditor, AlternativeHints } from "@/components/basket/LineEditor";
-import { BestSingleCard, SplitCard, StoreTotalsChart, SavingsLedger } from "@/components/basket/Verdict";
+import { BestPlanCard, StoreTotalsChart, SavingsLedger } from "@/components/basket/Verdict";
 import { PriceMatrix } from "@/components/basket/PriceMatrix";
 import { SearchBox } from "@/components/search/SearchUi";
 import { useBasket } from "@/lib/basket/store";
@@ -17,7 +17,7 @@ import { Suspense } from "react";
 type Tab = "verdict" | "matrix" | "ledger";
 
 const TABS: Array<{ id: Tab; label: string; hint: string }> = [
-  { id: "verdict", label: "Cheapest plan", hint: "Best single store and best split" },
+  { id: "verdict", label: "Cheapest plan", hint: "The cheapest way to buy it, whichever shops that is" },
   { id: "matrix", label: "Price grid", hint: "Every line at every store" },
   { id: "ledger", label: "Where it goes", hint: "Delivery, offers, freshness" },
 ];
@@ -189,8 +189,7 @@ export default function BasketPage() {
                 >
                   {tab === "verdict" && plan && (
                     <>
-                      <BestSingleCard plan={plan} />
-                      <SplitCard plan={plan} />
+                      <BestPlanCard plan={plan} />
                       <div className="rounded-2xl border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)]">
                         <h3 className="mb-3 font-display text-[1rem] font-semibold text-forest-950">
                           All nine stores
