@@ -4,6 +4,7 @@ import {
   comparable,
   deliveryFor,
   meetsMinimum,
+  type DeliveryStatus,
   type PackChoice,
 } from "@/lib/engine/pricing";
 
@@ -71,11 +72,22 @@ export interface StoreQuote {
   subtotal: number;
   /** PKR saved against shelf prices by promos on this order. */
   discount: number;
+  /** Delivery counted into `total`. 0 when free, and 0 when unknown. */
   delivery: number;
+  /** False when the store's charge is not known, which makes `total` a floor. */
+  deliveryKnown: boolean;
+  deliveryStatus: DeliveryStatus;
   freeDelivery: boolean;
   /** PKR more needed for free delivery. */
   gapToFree: number;
+  /**
+   * Subtotal plus every delivery charge we actually know. When the store's
+   * charge is unknown this is the cheapest the order could possibly be, and the
+   * UI has to say so rather than present it as a final price.
+   */
   total: number;
+  /** True when `total` is the real total rather than a floor. */
+  totalCertain: boolean;
   /** Share of requested lines this store can actually supply, 0..1. */
   coverage: number;
   belowMinOrder: boolean;
@@ -201,7 +213,7 @@ export function quoteStore(
   }
 
   subtotal = Math.round(subtotal);
-  const { fee, free, gapToFree } = deliveryFor(store, subtotal);
+  const { fee, free, gapToFree, known, status } = deliveryFor(store, subtotal);
   const belowMinOrder = input.items.length > 0 && subtotal > 0 && !meetsMinimum(store, subtotal);
 
   return {
@@ -212,9 +224,12 @@ export function quoteStore(
     subtotal,
     discount: Math.max(0, Math.round(listTotal) - subtotal),
     delivery: fee,
+    deliveryKnown: known,
+    deliveryStatus: status,
     freeDelivery: free,
     gapToFree,
     total: Math.round(subtotal + fee),
+    totalCertain: known,
     coverage: input.items.length ? lines.length / input.items.length : 0,
     belowMinOrder,
     complete: missing.length === 0 && lines.length > 0,

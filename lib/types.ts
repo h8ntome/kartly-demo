@@ -3,14 +3,17 @@
  *
  * This file is the contract between four layers that must stay independent:
  *
- *   1. Data sources  (sample catalog today, supermarket pricing API tomorrow)
+ *   1. Data sources  (the supplied price set today, a supermarket API tomorrow)
  *   2. Normalisation (mapping store-native SKUs onto one canonical product)
  *   3. The comparison engine (pure arithmetic, no I/O, no React)
  *   4. The UI
  *
- * Nothing in the UI imports sample data directly, and nothing in the engine
+ * Nothing in the UI imports the catalogue directly, and nothing in the engine
  * imports a data source. Swapping the API in means implementing
  * `CatalogProvider` in `lib/api/types.ts` — no other file changes.
+ *
+ * The honesty rule that runs through the whole model: an unknown number is
+ * `null`, never 0. A delivery fee nobody has told us is never priced as free.
  */
 
 /* ------------------------------------------------------------------ *
@@ -18,15 +21,12 @@
  * ------------------------------------------------------------------ */
 
 export const STORE_IDS = [
-  "naheed",
-  "imtiaz",
-  "carrefour",
-  "chase-up",
-  "springs",
   "hydri",
+  "carrefour",
+  "naheed",
+  "springs",
   "bin-hashim",
-  "chase-value",
-  "spar",
+  "chase-up",
 ] as const;
 
 export type StoreId = (typeof STORE_IDS)[number];
@@ -36,19 +36,17 @@ export interface Store {
   name: string;
   /** Two-letter chip label. */
   initials: string;
-  /** Flat delivery charge in PKR. */
-  deliveryFee: number;
-  /** Subtotal at which delivery becomes free. 0 = never free. */
-  freeDeliveryOver: number;
-  /** Minimum order the store will accept, PKR. */
-  minOrder: number;
-  /** Typical delivery window, shown for flavour. */
-  eta: string;
+  /** Flat delivery charge in PKR, or null when the store's fee is not known. */
+  deliveryFee: number | null;
+  /**
+   * Subtotal that has to be *exceeded* for delivery to be free, or null when
+   * the store has no known free-delivery threshold.
+   */
+  freeDeliveryOver: number | null;
+  /** Minimum order the store will accept, PKR; null when not known. */
+  minOrder: number | null;
   /** Brand colour used in chips, bars and charts. */
   accent: string;
-  blurb: string;
-  /** Areas of Karachi the sample data assumes it serves. */
-  coverage: string;
 }
 
 /* ------------------------------------------------------------------ *
@@ -153,8 +151,8 @@ export interface Offer {
   /** Canonical product this offer has been matched to. */
   canonicalId: string;
   storeId: StoreId;
-  /** The store's own SKU/code. */
-  sku: string;
+  /** The store's own SKU/code, when the source publishes one. */
+  sku?: string;
   /** The store's own title, verbatim — this is what a receipt would say. */
   title: string;
   brand: string;
@@ -172,12 +170,13 @@ export interface Offer {
   /** Loose stock band; APIs rarely give an exact count. */
   stock?: "in" | "low" | "out";
   /**
-   * Minutes since this price was last refreshed. Carried as an integer rather
-   * than a timestamp so server prerender and client hydration always agree.
+   * Minutes since this price was last refreshed, when the source says so.
+   * Absent or null means "we do not know how old this price is", and the UI
+   * says nothing rather than inventing an age.
    */
-  freshnessMins: number;
-  /** True when the figure came from a live API rather than the sample set. */
-  live: boolean;
+  freshnessMins?: number | null;
+  /** True when the figure came from a live API rather than the supplied set. */
+  live?: boolean;
   imageUrl?: string;
 }
 
@@ -250,11 +249,14 @@ export interface CatalogSummary {
   stockedAt: StoreId[];
   /** Stores with it in stock right now. */
   availableAt: StoreId[];
+  /** Stores that carry it but cannot supply it, or do not carry it at all. */
+  unavailableAt: StoreId[];
   /** bestPrice as a fraction of worstPrice, 0..1. Lower is a better deal. */
   valueRatio: number;
   /** Spread between cheapest and dearest, PKR. */
   spread: number;
-  freshestMins: number;
+  /** Age in minutes of the oldest price, or null when no price reports one. */
+  freshestMins: number | null;
   brands: string[];
   /** Cheapest unit price across stores, plus the unit it is quoted in. */
   bestUnitPrice: number | null;
@@ -263,17 +265,19 @@ export interface CatalogSummary {
 }
 
 export interface CatalogSnapshot {
-  /** ISO timestamp of when this snapshot was assembled. */
-  generatedAt: string;
-  /** "sample" or "live" — surfaced verbatim in the UI. */
-  source: "sample" | "live";
+  /** ISO timestamp of when this snapshot was assembled, null when unknown. */
+  generatedAt: string | null;
+  /** "supplied" or "live" — surfaced verbatim in the UI. */
+  source: CatalogSource;
   stores: Store[];
   products: ProductDetail[];
 }
 
+export type CatalogSource = "supplied" | "live";
+
 /** What the UI may claim about where the numbers came from. */
 export interface DataStatusLike {
-  source: "sample" | "live";
+  source: CatalogSource;
   providerId: string;
   label: string;
   note: string;

@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { Price, Tag } from "@/components/ui/Primitives";
 import { StoreBadge } from "@/components/brand/Logo";
 import { GrowBar } from "@/components/motion/Motion";
-import { formatPKR, formatPKRShort, freshnessLabel } from "@/lib/engine/format";
+import { formatPKR, formatPKRShort, deliveryShortLabel } from "@/lib/engine/format";
 import { STORE_MAP } from "@/lib/catalog/stores";
 import type { BasketPlan } from "@/lib/engine/plan";
 import type { MultiPlan, PlanOrder } from "@/lib/engine/multi";
@@ -39,9 +39,18 @@ function OrderBlock({
           </p>
         </div>
         <div className="text-right text-[0.82rem]">
-          <p className="tabular font-semibold text-ink">{formatPKR(order.total)}</p>
-          <p className="text-[0.72rem] text-sage-500">
-            {order.delivery === 0 ? "delivery free" : `+${formatPKR(order.delivery)}`}
+          <p className="tabular font-semibold text-ink">
+            {formatPKR(order.total)}
+            {order.deliveryStatus === "unknown" && (
+              <span className="ml-1 text-[0.68rem] font-normal text-warn">+del</span>
+            )}
+          </p>
+          <p
+            className={`text-[0.72rem] ${
+              order.deliveryStatus === "unknown" ? "text-warn" : "text-sage-500"
+            }`}
+          >
+            {deliveryShortLabel({ status: order.deliveryStatus, fee: order.delivery })}
           </p>
         </div>
       </div>
@@ -79,6 +88,7 @@ export function BestPlanCard({ plan }: { plan: BasketPlan }) {
 
   const split = best.storeCount > 1;
   const beatSingle = best.savingsVsSingle > 0;
+  const certain = plan.savings.savingsCertain;
 
   return (
     <motion.div
@@ -95,7 +105,9 @@ export function BestPlanCard({ plan }: { plan: BasketPlan }) {
           Cheapest way to buy it
         </h3>
         <Tag tone="save" className="ml-auto">
-          saves {formatPKRShort(plan.savings.bestVsWorst)}
+          {certain
+            ? `save at least ${formatPKRShort(plan.savings.bestVsWorst)}`
+            : `est. saving ${formatPKRShort(plan.savings.bestVsWorst)}`}
         </Tag>
       </div>
 
@@ -116,30 +128,49 @@ export function BestPlanCard({ plan }: { plan: BasketPlan }) {
       <div className="flex items-center justify-between gap-4 border-t border-cream-200 bg-cream-50 px-5 py-4">
         <div className="text-[0.8rem] text-sage-600">
           {formatPKR(best.subtotal)} goods +{" "}
-          {best.delivery === 0 ? (
-            <span className="font-semibold text-save">free delivery</span>
+          {best.deliveryKnown ? (
+            best.delivery === 0 ? (
+              <span className="font-semibold text-save">free delivery</span>
+            ) : (
+              `${formatPKR(best.delivery)} delivery`
+            )
           ) : (
-            `${formatPKR(best.delivery)} delivery`
+            <span className="font-semibold text-warn">delivery fee unknown</span>
           )}
           <span className="ml-1">
             across {best.storeCount} {best.storeCount === 1 ? "shop" : "shops"}
           </span>
           {!plan.exact && <span className="ml-1 text-warn">· best option found</span>}
         </div>
-        <Price amount={best.total} size="lg" tone="save" />
+        <div className="text-right">
+          <Price amount={best.total} size="lg" tone="save" />
+          <p className="text-[0.68rem] leading-tight text-sage-500">
+            {best.deliveryKnown ? "delivery included" : "plus unknown delivery"}
+          </p>
+        </div>
       </div>
+
+      {!best.deliveryKnown && (
+        <p className="border-t border-cream-200 bg-warn-soft px-5 py-2.5 text-[0.78rem] leading-relaxed text-warn">
+          {plan.savings.deliveryUnknownStores
+            .map((storeId) => plan.quotes.find((quote) => quote.storeId === storeId)?.store.name ?? storeId)
+            .join(", ")}{" "}
+          {plan.savings.deliveryUnknownStores.length === 1 ? "does" : "do"} not publish a delivery
+          charge, so it is not counted here. This total is a floor: the real bill may be higher.
+        </p>
+      )}
 
       {split && beatSingle && plan.bestSingle && (
         <p className="border-t border-cream-200 px-5 py-2.5 text-[0.78rem] leading-relaxed text-sage-600">
           Buying the same list at {plan.bestSingle.store.name} alone costs{" "}
           {formatPKR(plan.bestSingle.total)} — {formatPKR(best.savingsVsSingle)} more, after every
-          delivery fee is counted.
+          delivery charge both plans can actually quote.
         </p>
       )}
       {!split && plan.bestSingle && (
         <p className="border-t border-cream-200 px-5 py-2.5 text-[0.78rem] leading-relaxed text-sage-600">
-          One shop is the cheapest answer here: splitting this list anywhere else costs more once a
-          second delivery fee is added.
+          One shop is the cheapest answer here: splitting this list anywhere else costs at least as
+          much once another delivery charge is added.
         </p>
       )}
       {split && !beatSingle && (
@@ -190,7 +221,17 @@ export function StoreTotalsChart({ plan }: { plan: BasketPlan }) {
             </span>
             <span className="tabular text-right text-[0.82rem] font-semibold text-ink">
               {complete ? (
-                formatPKR(quote.total)
+                <>
+                  {formatPKR(quote.total)}
+                  {!quote.deliveryKnown && (
+                    <span
+                      className="ml-1 text-[0.68rem] font-normal text-warn"
+                      title="This store does not publish a delivery charge, so it is not counted"
+                    >
+                      +del
+                    </span>
+                  )}
+                </>
               ) : (
                 <span className="font-normal text-sage-400" title={`${quote.missing.length} items unavailable`}>
                   {quote.lines.length}/{quote.lines.length + quote.missing.length} items
@@ -201,8 +242,9 @@ export function StoreTotalsChart({ plan }: { plan: BasketPlan }) {
         );
       })}
       <p className="pt-1 text-[0.74rem] text-sage-500">
-        Bars include delivery. Grey bars cannot fill the whole basket — missing items are counted,
-        never dropped.
+        Bars include every delivery charge the store publishes. &quot;+del&quot; means the charge is
+        unknown and is not counted, so that total may be higher. Grey bars cannot fill the whole
+        basket — missing items are counted, never dropped.
       </p>
     </div>
   );
@@ -257,19 +299,32 @@ export function SavingsLedger({ plan }: { plan: BasketPlan }) {
       <div className="flex items-center justify-between gap-4 py-2.5">
         <dt className="text-sage-600">Delivery paid on the best plan</dt>
         <dd className="tabular font-semibold text-ink">
-          {plan.savings.deliveryPaid === 0 ? "none" : formatPKR(plan.savings.deliveryPaid)}
+          {plan.savings.deliveryPaid === 0
+            ? plan.savings.bestDeliveryKnown
+              ? "none"
+              : "not counted"
+            : formatPKR(plan.savings.deliveryPaid)}
         </dd>
       </div>
+      {plan.savings.deliveryUnknownStores.length > 0 && (
+        <div className="flex items-center justify-between gap-4 py-2.5">
+          <dt className="text-sage-600">Delivery fees still unknown</dt>
+          <dd className="text-right text-[0.78rem] font-semibold text-warn">
+            {plan.savings.deliveryUnknownStores
+              .map(
+                (storeId) =>
+                  plan.quotes.find((quote) => quote.storeId === storeId)?.store.name ?? storeId,
+              )
+              .join(", ")}
+          </dd>
+        </div>
+      )}
       {plan.savings.promoValue > 0 && (
         <div className="flex items-center justify-between gap-4 py-2.5">
           <dt className="text-sage-600">Value of offers applied</dt>
           <dd className="tabular font-semibold text-save">−{formatPKR(plan.savings.promoValue)}</dd>
         </div>
       )}
-      <div className="flex items-center justify-between gap-4 py-2.5">
-        <dt className="text-sage-600">Oldest price in this plan</dt>
-        <dd className="text-sage-600">{freshnessLabel(plan.oldestPriceMins)}</dd>
-      </div>
     </dl>
   );
 }

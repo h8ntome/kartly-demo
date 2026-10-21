@@ -9,7 +9,7 @@ import type { CatalogSnapshot } from "@/lib/types";
  *
  * Reports what the app is actually doing, not what it is configured to do:
  * `effectiveSource` is what the UI is showing, `configured` is what was asked
- * for. When they differ, the live feed failed and the sample set is on screen.
+ * for. When they differ, the live feed failed and the supplied set is on screen.
  */
 export async function GET() {
   const config = apiConfig();

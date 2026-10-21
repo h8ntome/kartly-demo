@@ -11,7 +11,7 @@ import type { ProductDetail } from "@/lib/types";
  * ```
  *
  * Returns the full comparison plan: every store quote, the best single store,
- * the best two-store split, the price matrix and the savings breakdown. This is
+ * the best split across stores, the price matrix and the savings breakdown. This is
  * the same pure engine the browser runs, exposed for anything that cannot ship
  * the catalogue — a mobile app, a webhook, a batch job.
  */

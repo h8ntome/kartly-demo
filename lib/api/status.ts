@@ -1,15 +1,16 @@
 import { apiConfig, liveConfigured } from "@/lib/api/config";
 import { resolveProvider } from "@/lib/api/index";
+import type { CatalogSource } from "@/lib/types";
 
 /**
  * What the UI is allowed to claim about its data.
  *
  * The badge in the header is generated from this, not hard-coded, so a
  * misconfigured or failing live source can never leave a "Live prices" label
- * sitting above sample numbers.
+ * sitting above supplied numbers.
  */
 export interface DataStatus {
-  source: "sample" | "live";
+  source: CatalogSource;
   providerId: string;
   label: string;
   note: string;

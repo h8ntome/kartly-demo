@@ -10,7 +10,7 @@ import { PriceMatrix } from "@/components/basket/PriceMatrix";
 import { SearchBox } from "@/components/search/SearchUi";
 import { useBasket } from "@/lib/basket/store";
 import { useCatalog, usePlan } from "@/lib/basket/use-catalog";
-import { STARTER_BASKET, TEASER_BASKET } from "@/lib/catalog/sample/generate";
+import { EXAMPLE_BASKET } from "@/lib/catalog/dataset";
 import { formatPKR, formatPKRShort } from "@/lib/engine/format";
 import { Suspense } from "react";
 
@@ -19,7 +19,7 @@ type Tab = "verdict" | "matrix" | "ledger";
 const TABS: Array<{ id: Tab; label: string; hint: string }> = [
   { id: "verdict", label: "Cheapest plan", hint: "The cheapest way to buy it, whichever shops that is" },
   { id: "matrix", label: "Price grid", hint: "Every line at every store" },
-  { id: "ledger", label: "Where it goes", hint: "Delivery, offers, freshness" },
+  { id: "ledger", label: "Where it goes", hint: "Delivery paid, and what is still unknown" },
 ];
 
 export default function BasketPage() {
@@ -27,6 +27,7 @@ export default function BasketPage() {
   const { data, loading, error, products } = useCatalog();
   const { plan } = usePlan(rows);
   const [tab, setTab] = useState<Tab>("verdict");
+  const snapshotCount = data?.stores.length ?? 6;
 
   return (
     <div className="mx-auto w-full max-w-[84rem] px-4 py-8 sm:px-6 sm:py-10">
@@ -36,8 +37,9 @@ export default function BasketPage() {
             Your shopping list
           </h1>
           <p className="mt-2 max-w-xl text-[0.95rem] leading-relaxed text-sage-600">
-            Kartly prices this basket at all nine supermarkets, including pack rounding, offers,
-            stock and delivery, then tells you the cheapest practical way to actually buy it.
+            Kartly prices this basket at all {snapshotCount} supermarkets it has prices for,
+            including pack rounding, availability and delivery, then tells you the cheapest
+            practical way to actually buy it.
           </p>
         </div>
         {rows.length > 0 && (
@@ -66,23 +68,20 @@ export default function BasketPage() {
           <EmptyState
             glyph="🧺"
             title="Your basket is empty"
-            body="Search for groceries and add them here, or start from one of two sample Karachi shopping lists and see the maths immediately."
+            body="Search for groceries and add them here, or start from the example basket and see the maths immediately."
             action={
               <div className="mt-2 flex flex-wrap justify-center gap-2">
                 <Button
                   onClick={() =>
-                    replaceAll(STARTER_BASKET.map((entry) => ({ canonicalId: entry.canonicalId, quantity: entry.quantity })))
+                    replaceAll(
+                      EXAMPLE_BASKET.map((entry) => ({
+                        canonicalId: entry.canonicalId,
+                        quantity: entry.quantity,
+                      })),
+                    )
                   }
                 >
-                  Load a monthly shop (12 items)
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    replaceAll(TEASER_BASKET.map((entry) => ({ canonicalId: entry.canonicalId, quantity: entry.quantity })))
-                  }
-                >
-                  Load a weekly top-up (8 items)
+                  Load the example basket ({EXAMPLE_BASKET.length} items)
                 </Button>
                 <LinkButton href="/receipt" variant="quiet">
                   Or scan a receipt →
@@ -192,7 +191,7 @@ export default function BasketPage() {
                       <BestPlanCard plan={plan} />
                       <div className="rounded-2xl border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)]">
                         <h3 className="mb-3 font-display text-[1rem] font-semibold text-forest-950">
-                          All nine stores
+                          All {snapshotCount} stores
                         </h3>
                         <StoreTotalsChart plan={plan} />
                       </div>
@@ -222,8 +221,7 @@ export default function BasketPage() {
                         The floor is what you would pay if every single item came from its cheapest
                         store with no delivery — impossible in practice, shown so the savings claim
                         is not flattered.
-                      </p>
-                    </div>
+                      </p>                    </div>
                   )}
                 </motion.div>
               </AnimatePresence>

@@ -6,7 +6,7 @@ import { useBasket } from "@/lib/basket/store";
 
 /**
  * The one thing the home page asks of a first-time visitor: put a real basket in
- * and watch the numbers move. It loads the same sample list the basket page
+ * and watch the numbers move. It loads the same example basket the basket page
  * offers, so the figures on the landing screen and the figures you land on are
  * the same figures.
  */

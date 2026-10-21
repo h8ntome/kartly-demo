@@ -1,5 +1,8 @@
 /** Display formatting. PKR everywhere — this is a Karachi product. */
 
+import type { Store } from "@/lib/types";
+import type { DeliveryStatus } from "@/lib/engine/pricing";
+
 export function formatPKR(amount: number): string {
   const value = Math.round(amount);
   const sign = value < 0 ? "−" : "";
@@ -27,9 +30,13 @@ export function formatPercent(ratio: number, digits = 0): string {
   return `${(ratio * 100).toFixed(digits)}%`;
 }
 
-/** "42m ago" — derived from an integer, never from `new Date()`, so server
- *  prerender and client hydration always print the same string. */
-export function freshnessLabel(mins: number): string {
+/**
+ * "42m ago" — derived from an integer, never from `new Date()`, so server
+ * prerender and client hydration always print the same string. Returns null
+ * when no price reported an age, because "unknown" is not the same as "now".
+ */
+export function freshnessLabel(mins?: number | null): string | null {
+  if (mins === null || mins === undefined) return null;
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
@@ -53,4 +60,41 @@ export function formatQuantityInput(quantity: number): string {
 
 export function pluralise(count: number, singular: string, plural = `${singular}s`): string {
   return `${count.toLocaleString("en-PK")} ${count === 1 ? singular : plural}`;
+}
+
+/* ------------------------------------------------------------------ *
+ * Delivery rules, in words
+ * ------------------------------------------------------------------ */
+
+/**
+ * The store's published delivery rule. Anything we were not told stays a
+ * statement of ignorance rather than a friendly zero.
+ */
+export function deliveryRuleLabel(store: Store): string {
+  const freeOver = store.freeDeliveryOver;
+  const fee = store.deliveryFee;
+  if (freeOver !== null && fee === null) {
+    return `Free delivery above ${formatPKR(freeOver)}; the charge below that is unknown`;
+  }
+  if (freeOver !== null && fee !== null) {
+    return `Free delivery above ${formatPKR(freeOver)}, otherwise ${formatPKR(fee)}`;
+  }
+  if (fee !== null) return `${formatPKR(fee)} delivery`;
+  return "Delivery fee unknown";
+}
+
+/** What delivery costs on one specific order. */
+export function deliveryLineLabel(delivery: { status: DeliveryStatus; fee?: number }): string {
+  if (delivery.status === "free") return "free delivery";
+  if (delivery.status === "unknown") return "delivery fee unknown";
+  if (delivery.status === "charged") return `${formatPKR(delivery.fee ?? 0)} delivery`;
+  return "no order";
+}
+
+/** Short form for table columns and chips. */
+export function deliveryShortLabel(delivery: { status: DeliveryStatus; fee?: number }): string {
+  if (delivery.status === "free") return "free delivery";
+  if (delivery.status === "unknown") return "delivery unknown";
+  if (delivery.status === "charged") return `+${formatPKRShort(delivery.fee ?? 0)} delivery`;
+  return "—";
 }

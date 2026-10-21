@@ -7,8 +7,8 @@
  */
 
 export interface ApiConfig {
-  /** "sample" (default) or "rest". */
-  provider: "sample" | "rest";
+  /** "local" (default) or "rest". */
+  provider: "local" | "rest";
   baseUrl: string;
   /** Path appended to baseUrl for the catalogue. */
   productsPath: string;
@@ -50,7 +50,7 @@ function parseExtraHeaders(raw: string | undefined): Record<string, string> {
  * from a client component can never happen by accident.
  */
 export function apiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
-  const provider = env.KARTLY_API_PROVIDER === "rest" ? "rest" : "sample";
+  const provider = env.KARTLY_API_PROVIDER === "rest" ? "rest" : "local";
   return {
     provider,
     baseUrl: (env.KARTLY_API_BASE_URL ?? "").replace(/\/+$/, ""),

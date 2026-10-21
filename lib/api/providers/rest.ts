@@ -16,11 +16,11 @@ import type { ApiConfig } from "@/lib/api/config";
 import type { CatalogProvider } from "@/lib/api/types";
 
 /**
- * Generic REST adapter for the real supermarket pricing API.
+ * Generic REST adapter for a real supermarket pricing API.
  *
  * Design goals, in order:
  *   1. Never let a bad upstream take the UI down — every failure degrades to
- *      the sample catalogue with the reason surfaced in the UI.
+ *      the supplied catalogue with the reason surfaced in the UI.
  *   2. Tolerate field naming, because supermarket feeds never agree. Mapping is
  *      permissive and pack sizes are inferred from titles when absent, since
  *      that is where Pakistani price feeds actually put them.
@@ -175,18 +175,13 @@ function asStoreId(value: unknown): StoreId | null {
   if ((STORE_IDS as readonly string[]).includes(raw)) return raw as StoreId;
   const aliases: Record<string, StoreId> = {
     "naheed-super-market": "naheed",
-    "imtiaz-super-market": "imtiaz",
-    imtiaz: "imtiaz",
     "carrefour-pakistan": "carrefour",
-    "chaseup": "chase-up",
+    chaseup: "chase-up",
     "chase-up": "chase-up",
     "springs-super-market": "springs",
     "hydri-super-market": "hydri",
-    "binhashim": "bin-hashim",
+    binhashim: "bin-hashim",
     "bin-hashim": "bin-hashim",
-    "chasevalue": "chase-value",
-    "chase-value": "chase-value",
-    "spar-pakistan": "spar",
   };
   return aliases[raw] ?? null;
 }
@@ -238,7 +233,7 @@ function mapOffer(raw: unknown, canonicalId: string, fallbackFreshness: number):
   return {
     canonicalId,
     storeId,
-    sku: asString(pick(item, ["sku", "code", "id", "barcode"]), `${storeId}-${canonicalId}`),
+    sku: asString(pick(item, ["sku", "code", "barcode"])) || undefined,
     title: title || "Untitled product",
     brand: asString(pick(item, ["brand", "make", "manufacturer"]), "Unbranded"),
     quantity,
@@ -311,7 +306,6 @@ function mapStore(raw: unknown): Store | null {
     deliveryFee: fee ?? base.deliveryFee,
     freeDeliveryOver: freeOver ?? base.freeDeliveryOver,
     minOrder: minOrder ?? base.minOrder,
-    eta: asString(pick(item, ["eta", "deliveryEta", "leadTime"]), base.eta),
   };
 }
 
@@ -343,12 +337,12 @@ export function createRestProvider(
       try {
         payload = await requestJson<Loose>(url(config.productsPath), config, fetchImpl);
       } catch {
-        // Degradation, not failure: the demo must keep working when the
+        // Degradation, not failure: the app must keep working when the
         // upstream is down, but it must say so rather than fake freshness.
         const snapshot = await fallback.load();
         return {
           ...snapshot,
-          source: "sample",
+          source: "supplied",
           stores: snapshot.stores,
         };
       }
@@ -369,7 +363,7 @@ export function createRestProvider(
         // An empty payload is worse than an error: it would render a blank
         // catalogue while claiming to be live.
         const snapshot = await fallback.load();
-        return { ...snapshot, source: "sample" };
+        return { ...snapshot, source: "supplied" };
       }
 
       const rawStores = (Array.isArray(payload.stores) ? payload.stores : []) as unknown[];

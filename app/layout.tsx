@@ -29,18 +29,18 @@ export const metadata: Metadata = {
     template: "%s · Kartly",
   },
   description:
-    "Kartly compares grocery prices across nine Karachi supermarkets and works out the cheapest way to buy your whole shopping list — prices, pack sizes, offers, stock and delivery included.",
+    "Kartly compares grocery prices across the Karachi supermarkets it has prices for and works out the cheapest way to buy your whole shopping list — prices, pack sizes, availability and delivery included.",
   applicationName: "Kartly",
   keywords: [
     "grocery price comparison Pakistan",
     "Karachi groceries",
     "cheapest grocery basket",
-    "Imtiaz Naheed Carrefour prices",
+    "Naheed Hydri Carrefour prices",
   ],
   openGraph: {
     title: "Kartly — your shopping list, at the lowest possible cost",
     description:
-      "Compare nine Karachi supermarkets on your entire basket, not one product at a time. Kartly finds the cheapest single store, or the two-store split that beats it.",
+      "Compare Karachi supermarkets on your entire basket, not one product at a time. Kartly finds the cheapest single store, or the split across stores that beats it.",
     type: "website",
     locale: "en_PK",
   },

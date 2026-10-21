@@ -9,14 +9,14 @@ export function SiteFooter() {
         <div className="max-w-sm">
           <Logo />
           <p className="mt-4 text-sm leading-relaxed text-sage-600">
-            Your shopping list, at the lowest possible cost. Kartly compares nine Karachi
+            Your shopping list, at the lowest possible cost. Kartly compares six Karachi
             supermarkets at the level that actually matters — your whole basket, delivery
             included.
           </p>
           <p className="mt-4 rounded-lg bg-warn-soft px-3 py-2 text-[0.76rem] leading-relaxed text-warn ring-1 ring-inset ring-warn/15">
-            This demo runs on illustrative sample prices. Store names are used to show how the
-            comparison works; the figures are not their price lists and they are not Kartly
-            partners.
+            Prices are supplied figures for the stores listed here, not their published price
+            lists. Where a delivery charge was not supplied, Kartly says so rather than guessing.
+            None of these stores is a Kartly partner.
           </p>
         </div>
 
@@ -33,10 +33,11 @@ export function SiteFooter() {
         <FooterColumn
           title="Popular searches"
           links={[
+            { href: "/search?q=nesvita", label: "Nesvita" },
             { href: "/search?q=basmati rice", label: "Basmati rice" },
-            { href: "/search?q=cooking oil", label: "Cooking oil" },
-            { href: "/search?q=atta", label: "Chakki atta" },
-            { href: "/search?q=chicken", label: "Chicken" },
+            { href: "/search?q=nurpur butter", label: "Nurpur butter" },
+            { href: "/search?q=canola oil", label: "Canola oil" },
+            { href: "/search?q=cocomo cereal", label: "Cocomo cereal" },
           ]}
         />
 

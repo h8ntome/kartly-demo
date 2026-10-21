@@ -1,5 +1,11 @@
 import type { ProductDetail, Store, StoreId } from "@/lib/types";
-import { cheapestPack, deliveryFor, type PackChoice } from "@/lib/engine/pricing";
+import {
+  cheapestPack,
+  deliveryFor,
+  earnsFreeDelivery,
+  type DeliveryStatus,
+  type PackChoice,
+} from "@/lib/engine/pricing";
 import { findBestSplit } from "@/lib/engine/optimizer";
 import type { BasketItem, EngineInput, OfferIndex } from "@/lib/engine/quotes";
 
@@ -38,7 +44,7 @@ import type { BasketItem, EngineInput, OfferIndex } from "@/lib/engine/quotes";
  * Steps 2 and 3 are a local search, so the answer is the best found, not a
  * proof — except when the winner is a single shop or a pair, where the
  * exhaustive search behind the seed is exact. That is what `exact` reports,
- * and the UI says "best option found" when it is false. On the sample
+ * and the UI says "best option found" when it is false. On this
  * catalogue the search matches a hand-enumerated optimum on every basket
  * small enough to enumerate, and lands within a fraction of a percent on the
  * baskets that are not.
@@ -68,6 +74,9 @@ export interface PlanOrder {
   }>;
   subtotal: number;
   delivery: number;
+  /** False when this shop's delivery charge is not known. */
+  deliveryKnown: boolean;
+  deliveryStatus: DeliveryStatus;
   total: number;
   freeDelivery: boolean;
   gapToFree: number;
@@ -78,8 +87,13 @@ export interface MultiPlan {
   /** One entry per shop the plan buys from, biggest order first. */
   orders: PlanOrder[];
   subtotal: number;
+  /** Delivery charges that are actually known and counted into `total`. */
   delivery: number;
   total: number;
+  /** True when every shop in the plan has a known delivery charge. */
+  deliveryKnown: boolean;
+  /** Shops whose delivery charge is not known, so `total` may rise. */
+  deliveryUnknownStores: StoreId[];
   storeCount: number;
   /** PKR cheaper than the best single shop. 0 when a single shop already wins. */
   savingsVsSingle: number;
@@ -138,11 +152,20 @@ function buildContext(items: BasketItem[], input: EngineInput, index: OfferIndex
   return { stores: input.stores, lines, cheapestStore };
 }
 
-/** What one shop contributes to the total: goods, delivery, and any minimum-basket penalty. */
+/**
+ * What one shop contributes to the total: goods, any delivery charge we know,
+ * and a heavy penalty for a shop below its stated minimum basket.
+ *
+ * An unknown delivery charge adds nothing to the score — it is a floor, not a
+ * free delivery — which is why every total built from this is reported as "at
+ * least" whenever an unknown is involved.
+ */
 function storeCost(subtotal: number, store: Store): number {
   if (subtotal <= 0) return 0;
   let cost = subtotal + deliveryFor(store, subtotal).fee;
-  if (subtotal < store.minOrder) cost += MIN_ORDER_PENALTY + (store.minOrder - subtotal);
+  if (store.minOrder !== null && subtotal < store.minOrder) {
+    cost += MIN_ORDER_PENALTY + (store.minOrder - subtotal);
+  }
   return cost;
 }
 
@@ -392,17 +415,19 @@ function materialise(
     if (!lines.length) continue;
 
     subtotal = Math.round(subtotal);
-    const { fee, free, gapToFree } = deliveryFor(store, subtotal);
+    const { fee, free, gapToFree, known, status } = deliveryFor(store, subtotal);
     orders.push({
       storeId: store.id,
       store,
       lines,
       subtotal,
       delivery: fee,
+      deliveryKnown: known,
+      deliveryStatus: status,
       total: Math.round(subtotal + fee),
       freeDelivery: free,
       gapToFree,
-      belowMinOrder: subtotal < store.minOrder,
+      belowMinOrder: store.minOrder !== null && subtotal < store.minOrder,
     });
   }
 
@@ -411,12 +436,17 @@ function materialise(
   const subtotal = orders.reduce((sum, order) => sum + order.subtotal, 0);
   const delivery = orders.reduce((sum, order) => sum + order.delivery, 0);
   const storeCount = orders.length;
+  const deliveryUnknownStores = orders
+    .filter((order) => !order.deliveryKnown)
+    .map((order) => order.storeId);
 
   return {
     orders,
     subtotal,
     delivery,
     total: Math.round(subtotal + delivery),
+    deliveryKnown: deliveryUnknownStores.length === 0,
+    deliveryUnknownStores,
     storeCount,
     savingsVsSingle: Math.max(0, Math.round(bestSingleTotal - (subtotal + delivery))),
     exact: storeCount <= 2,
@@ -438,14 +468,14 @@ function thresholdSeed(
   storeIndex: number,
 ): Int16Array | null {
   const store = context.stores[storeIndex];
-  if (!store.freeDeliveryOver) return null;
+  if (store.freeDeliveryOver === null) return null;
 
   const next = Int16Array.from(assign);
   let subtotal = 0;
   for (let i = 0; i < context.lines.length; i++) {
     if (next[i] === storeIndex) subtotal += context.lines[i].at[storeIndex]!.cost;
   }
-  if (subtotal >= store.freeDeliveryOver) return null;
+  if (earnsFreeDelivery(store, subtotal)) return null;
 
   const movable: Array<{ line: number; delta: number }> = [];
   for (let i = 0; i < context.lines.length; i++) {
@@ -459,7 +489,7 @@ function thresholdSeed(
 
   let moved = false;
   for (const entry of movable) {
-    if (subtotal >= store.freeDeliveryOver) break;
+    if (earnsFreeDelivery(store, subtotal)) break;
     const choice = context.lines[entry.line].at[storeIndex];
     if (!choice) continue;
     next[entry.line] = storeIndex;

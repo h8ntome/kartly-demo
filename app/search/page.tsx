@@ -66,12 +66,13 @@ export default async function SearchPage({
                 Prices for <span className="text-forest-600">“{query}”</span>
               </>
             ) : (
-              "Compare nine supermarkets at once"
+              "Compare every supermarket at once"
             )}
           </h1>
           <p className="mt-3 text-[0.95rem] leading-relaxed text-sage-600">
-            Every price below is the real pack price after offers, converted to a common unit so a
-            5 kg bag and a 1 kg bag are compared honestly.
+            Every price below is the pack price the store charges, converted to a common unit so a
+            5 kg bag and a 1 kg bag are compared honestly. A store that does not have the product is
+            shown as unavailable, never as free.
           </p>
         </div>
         <div className="w-full max-w-xl lg:w-[34rem]">
@@ -82,8 +83,8 @@ export default async function SearchPage({
       </div>
 
       <div className="mt-8 flex flex-wrap items-center gap-3">
-        <Tag tone={status.source === "live" ? "live" : "sample"}>
-          {status.source === "live" ? "Live prices" : "Sample prices"}
+        <Tag tone={status.source === "live" ? "live" : "warn"}>
+          {status.source === "live" ? "Live prices" : "Supplied prices"}
         </Tag>
         <span className="text-[0.8rem] text-sage-500">{status.note}</span>
         {result.items.length > 0 && (
@@ -119,7 +120,7 @@ export default async function SearchPage({
             title="Nothing matched that"
             body={
               query
-                ? `No product in the catalogue matches “${query}” with these filters. Try a broader word — “rice”, “oil”, “daal” — or clear the store filter.`
+                ? `No product in the catalogue matches “${query}” with these filters. Try a broader word — “rice”, “oil”, “cereal” — or clear the store filter.`
                 : "The catalogue is empty, which means the price source returned nothing. Check /api/health."
             }
             action={
@@ -142,9 +143,7 @@ export default async function SearchPage({
         {status.source === "live" ? (
           "fetched from the connected supermarket pricing API"
         ) : (
-          <span className="font-semibold text-warn">
-            illustrative sample figures built for this demo
-          </span>
+          <span className="font-semibold text-warn">the figures supplied to Kartly</span>
         )}
         . They are not the stores&apos; published price lists. Connect a live feed through the
         environment variables in <code className="rounded bg-cream-200 px-1">.env.example</code> and

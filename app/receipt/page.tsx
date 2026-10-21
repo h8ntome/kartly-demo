@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { SAMPLE_RECEIPTS } from "@/lib/catalog/sample/generate";
+import { EXAMPLE_RECEIPTS } from "@/lib/catalog/dataset";
 import { ReceiptScanner } from "@/components/receipt/ReceiptScanner";
 import { SearchBox } from "@/components/search/SearchUi";
 import { Skeleton } from "@/components/ui/Primitives";
@@ -9,10 +9,10 @@ import { Skeleton } from "@/components/ui/Primitives";
 export const metadata: Metadata = {
   title: "Scan a receipt",
   description:
-    "Turn a Karachi grocery receipt into a shopping list in your browser, then see what the same list costs at all nine supermarkets Kartly compares.",
+    "Turn a Karachi grocery receipt into a shopping list in your browser, then see what the same list costs at every supermarket Kartly compares.",
 };
 
-const samples = SAMPLE_RECEIPTS.map((receipt) => ({ store: receipt.store, text: receipt.text }));
+const examples = EXAMPLE_RECEIPTS.map((receipt) => ({ store: receipt.store, text: receipt.text }));
 
 export default function ReceiptPage() {
   return (
@@ -44,7 +44,7 @@ export default function ReceiptPage() {
       </header>
 
       <div className="mt-8">
-        <ReceiptScanner samples={samples} />
+        <ReceiptScanner examples={examples} />
       </div>
     </div>
   );

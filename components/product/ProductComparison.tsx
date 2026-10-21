@@ -4,13 +4,13 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { Button, Price, Tag } from "@/components/ui/Primitives";
 import { StoreBadge } from "@/components/brand/Logo";
-import { formatPKR, formatQuantityInput, freshnessLabel, freshnessTone } from "@/lib/engine/format";
+import { formatPKR, formatQuantityInput } from "@/lib/engine/format";
 import { cheapestPack, familyOf } from "@/lib/engine/pricing";
 import { useBasket } from "@/lib/basket/store";
 import type { Offer, ProductDetail, Store, Unit } from "@/lib/types";
 
 /**
- * One product, nine shops.
+ * One product, six shops.
  *
  * The honest unit here is price per base unit, not shelf price: a 5 kg bag is
  * not "more expensive" than a 1 kg bag, it is a different quantity. The table
@@ -38,7 +38,7 @@ function buildRows(product: ProductDetail, stores: Store[], quantity: number): R
       const offers = byStore.get(store.id) ?? [];
       const choice = offers.length ? cheapestPack(offers, quantity, product.unit) : null;
       let reason: string | null = null;
-      if (!offers.length) reason = "Not stocked here";
+      if (!offers.length) reason = "Not available here";
       else if (!offers.some((offer) => familyOf(offer.unit) === familyOf(product.unit))) {
         reason = "Sold in a different unit";
       } else if (!choice) reason = "Out of stock";
@@ -141,7 +141,6 @@ export function ProductComparison({
         <ul className="divide-y divide-cream-200">
           {rows.map((row, index) => {
             const isCheapest = !!row.best && row.best.cost === cheapest && spread > 0;
-            const tone = row.best ? freshnessTone(row.best.offer.freshnessMins) : "stale";
             return (
               <motion.li
                 key={row.store.id}
@@ -183,20 +182,12 @@ export function ProductComparison({
                   )}
                   <div className="w-[7.5rem] text-right">
                     {row.best ? (
-                      <>
-                        <Price
-                          amount={row.best.cost}
-                          list={row.best.offer.listPrice}
-                          size="md"
-                          tone={isCheapest ? "save" : "default"}
-                        />
-                        <span className="mt-0.5 flex items-center justify-end gap-1.5">
-                          <FreshnessDot tone={tone} />
-                          <span className="text-[0.7rem] text-sage-400">
-                            {freshnessLabel(row.best.offer.freshnessMins)}
-                          </span>
-                        </span>
-                      </>
+                      <Price
+                        amount={row.best.cost}
+                        list={row.best.offer.listPrice}
+                        size="md"
+                        tone={isCheapest ? "save" : "default"}
+                      />
                     ) : (
                       <span className="text-[0.8rem] text-sage-300">—</span>
                     )}
@@ -217,12 +208,6 @@ export function ProductComparison({
       </p>
     </div>
   );
-}
-
-function FreshnessDot({ tone }: { tone: "fresh" | "recent" | "stale" }) {
-  const colour =
-    tone === "fresh" ? "var(--color-forest-400)" : tone === "recent" ? "var(--color-warn)" : "var(--color-sage-300)";
-  return <span className="h-1.5 w-1.5 rounded-full" style={{ background: colour }} aria-hidden="true" />;
 }
 
 function unitLabel(unit: Unit): string {

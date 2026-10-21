@@ -2,6 +2,8 @@ import type { ProductDetail, Store, StoreId } from "@/lib/types";
 import {
   cheapestPack,
   deliveryFor,
+  earnsFreeDelivery,
+  type DeliveryStatus,
   type PackChoice,
 } from "@/lib/engine/pricing";
 import type { BasketItem, EngineInput, OfferIndex } from "@/lib/engine/quotes";
@@ -44,6 +46,8 @@ export interface SplitPlan {
   secondary: SplitAssignment;
   subtotal: number;
   delivery: number;
+  /** False when either shop's delivery charge is not known. */
+  deliveryKnown: boolean;
   total: number;
   /** PKR saved against the best single-store total. May be ≤ 0. */
   savingsVsSingle: number;
@@ -64,6 +68,8 @@ export interface SplitAssignment {
   }>;
   subtotal: number;
   delivery: number;
+  deliveryKnown: boolean;
+  deliveryStatus: DeliveryStatus;
   total: number;
   freeDelivery: boolean;
   gapToFree: number;
@@ -149,10 +155,11 @@ function totalOf(
 }
 
 function acceptable(subA: number, subB: number, context: PairContext): boolean {
-  // Both orders must exist and clear their store's minimum basket.
+  // Both orders must exist and clear their store's stated minimum basket; a
+  // store with no published minimum imposes none.
   if (subA <= 0 || subB <= 0) return false;
-  if (subA < context.storeA.minOrder) return false;
-  if (subB < context.storeB.minOrder) return false;
+  if (context.storeA.minOrder !== null && subA < context.storeA.minOrder) return false;
+  if (context.storeB.minOrder !== null && subB < context.storeB.minOrder) return false;
   return true;
 }
 
@@ -226,12 +233,12 @@ function hillClimb(
   // Nudge: from the naive split, move the cheapest-per-pai lines to B until B
   // clears its free threshold — the classic "one more item for free delivery".
   for (const target of [context.storeB.freeDeliveryOver, context.storeA.freeDeliveryOver]) {
-    if (!target) continue;
+    if (target === null) continue;
     const seed = Uint8Array.from(naive);
     const order = [...Array(m).keys()].sort((x, y) => costB[x] - costA[x] - (costB[y] - costA[y]));
     for (const idx of order) {
       const subB = context.fixedCostB + Array.from(seed).reduce((sum, flag, i) => sum + (flag ? costB[i] : 0), 0);
-      if (subB >= target) break;
+      if (earnsFreeDelivery(context.storeB, subB)) break;
       seed[idx] = 1;
     }
     seeds.push(seed);
@@ -334,16 +341,18 @@ function materialise(
       subtotal += choice.cost;
     });
     subtotal = Math.round(subtotal);
-    const { fee, free, gapToFree } = deliveryFor(store, subtotal);
+    const { fee, free, gapToFree, known, status } = deliveryFor(store, subtotal);
     return {
       storeId: store.id,
       lines,
       subtotal,
       delivery: fee,
+      deliveryKnown: known,
+      deliveryStatus: status,
       total: Math.round(subtotal + fee),
       freeDelivery: free,
       gapToFree,
-      belowMinOrder: subtotal > 0 && subtotal < store.minOrder,
+      belowMinOrder: store.minOrder !== null && subtotal > 0 && subtotal < store.minOrder,
     };
   };
 
@@ -366,6 +375,7 @@ function materialise(
     secondary,
     subtotal,
     delivery,
+    deliveryKnown: primary.deliveryKnown && secondary.deliveryKnown,
     total: Math.round(subtotal + delivery),
     savingsVsSingle: 0,
     exact: context.movable.length <= MAX_EXACT_LINES,

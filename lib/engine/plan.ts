@@ -32,7 +32,6 @@ export interface MatrixCell {
   unitPrice: number;
   surplus: number;
   promoLabel?: string;
-  freshnessMins: number;
   detail?: string;
 }
 
@@ -77,12 +76,20 @@ export interface BasketPlan {
     promoValue: number;
     /** Gap between the best option and the unreachable cherry-picked floor. */
     remainingGap: number;
+    /** True when the recommended plan has no unknown delivery charge in it. */
+    bestDeliveryKnown: boolean;
+    /**
+     * True when the savings figures are a floor the shopper can be promised.
+     * False when an unknown delivery fee could eat them, in which case the UI
+     * must call them an estimate, never a saving.
+     */
+    savingsCertain: boolean;
+    /** Shops in the recommended plan whose delivery charge is not known. */
+    deliveryUnknownStores: StoreId[];
   };
   /** Lines no store in the catalogue can supply. */
   unfulfillable: Array<{ canonicalId: string; name: string; glyph: string }>;
   alternatives: CheaperAlternative[];
-  /** Minutes since the oldest price used in this plan. */
-  oldestPriceMins: number;
   /** False when the winning plan came from the local search, not exhaustive search. */
   exact: boolean;
   meta: {
@@ -111,7 +118,6 @@ function buildMatrix(
           brand: "—",
           unitPrice: 0,
           surplus: 0,
-          freshnessMins: 0,
         });
         continue;
       }
@@ -127,7 +133,6 @@ function buildMatrix(
           brand: "—",
           unitPrice: 0,
           surplus: 0,
-          freshnessMins: 0,
         });
         continue;
       }
@@ -143,7 +148,6 @@ function buildMatrix(
           brand: offers[0].brand,
           unitPrice: 0,
           surplus: 0,
-          freshnessMins: offers[0].freshnessMins,
           detail: `sold in ${units}`,
         });
         continue;
@@ -161,7 +165,6 @@ function buildMatrix(
           brand: offers[0].brand,
           unitPrice: 0,
           surplus: 0,
-          freshnessMins: offers[0].freshnessMins,
         });
         continue;
       }
@@ -176,7 +179,6 @@ function buildMatrix(
         unitPrice: choice.unitPrice,
         surplus: choice.surplus,
         promoLabel: choice.offer.promo?.label,
-        freshnessMins: choice.offer.freshnessMins,
       });
     }
   }
@@ -203,7 +205,6 @@ interface AlternativeSourceLine {
   cost: number;
   listCost: number;
   storeId: StoreId;
-  freshnessMins: number;
 }
 
 function findAlternatives(
@@ -276,8 +277,12 @@ export function compareBasket(
   const cherry = cherryPickFloor(items, input, index);
   const bestTotal = bestPlan?.total ?? (bestSingle?.total ?? 0);
   const deliveryPaid = bestPlan?.delivery ?? (bestSingle?.delivery ?? 0);
-  // One flat line list for the winning plan, so promo totals, freshness and
-  // swap suggestions all read from a single shape however many shops it uses.
+  const bestDeliveryKnown = bestPlan
+    ? bestPlan.deliveryKnown
+    : (bestSingle?.deliveryKnown ?? true);
+  const deliveryUnknownStores = bestPlan?.deliveryUnknownStores ?? [];
+  // One flat line list for the winning plan, so promo totals and swap
+  // suggestions all read from a single shape however many shops it uses.
   const usable: AlternativeSourceLine[] = bestPlan
     ? bestPlan.orders.flatMap((order: PlanOrder) =>
         order.lines.map((line) => ({
@@ -288,7 +293,6 @@ export function compareBasket(
           cost: line.choice.cost,
           listCost: line.choice.listCost,
           storeId: order.storeId,
-          freshnessMins: line.choice.offer.freshnessMins,
         })),
       )
     : (bestSingle?.lines ?? []).map((line) => ({
@@ -299,7 +303,6 @@ export function compareBasket(
         cost: line.cost,
         listCost: line.listCost,
         storeId: line.offer.storeId,
-        freshnessMins: line.offer.freshnessMins,
       }));
 
   const promoValue = Math.round(
@@ -319,10 +322,6 @@ export function compareBasket(
       };
     });
 
-  const oldestPriceMins = usable.length
-    ? Math.max(...usable.map((line) => line.freshnessMins))
-    : 0;
-
   return {
     items,
     quotes,
@@ -339,10 +338,14 @@ export function compareBasket(
       deliveryPaid,
       promoValue,
       remainingGap: Math.max(0, Math.round(bestTotal - cherry.total)),
+      bestDeliveryKnown,
+      // An unknown fee on the recommended plan could eat the whole gap, so the
+      // gap is only a promise when the plan's own delivery is known.
+      savingsCertain: bestDeliveryKnown,
+      deliveryUnknownStores,
     },
     unfulfillable,
     alternatives: findAlternatives(usable, items, input, index),
-    oldestPriceMins,
     exact: bestPlan?.exact ?? true,
     meta: {
       setsEvaluated: planSearch.setsEvaluated,

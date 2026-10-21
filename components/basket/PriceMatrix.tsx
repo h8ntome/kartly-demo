@@ -1,7 +1,13 @@
 "use client";
 
 import { STORE_MAP } from "@/lib/catalog/stores";
-import { formatPKR, formatPKRShort, formatQuantityInput, freshnessLabel } from "@/lib/engine/format";
+import {
+  deliveryShortLabel,
+  deliveryRuleLabel,
+  formatPKR,
+  formatPKRShort,
+  formatQuantityInput,
+} from "@/lib/engine/format";
 import { normaliseQuantity } from "@/lib/types";
 import type { BasketPlan } from "@/lib/engine/plan";
 import type { ProductDetail } from "@/lib/types";
@@ -58,7 +64,7 @@ export function PriceMatrix({
                   key={quote.storeId}
                   scope="col"
                   className="px-3 py-3 text-right font-semibold"
-                  title={`${store.name} — ${formatPKR(store.deliveryFee)} delivery, free over ${formatPKRShort(store.freeDeliveryOver)}, min order ${formatPKRShort(store.minOrder)}`}
+                  title={`${store.name} — ${deliveryRuleLabel(store)}`}
                 >
                   <span className="flex flex-col items-end gap-1">
                     <span className="flex items-center gap-1.5">
@@ -70,7 +76,7 @@ export function PriceMatrix({
                       {store.name}
                     </span>
                     <span className="text-[0.66rem] font-normal uppercase tracking-[0.06em] text-sage-400">
-                      {quote.freeDelivery ? "free delivery" : `+${formatPKRShort(quote.delivery)} del.`}
+                      {deliveryShortLabel({ status: quote.deliveryStatus, fee: quote.delivery })}
                     </span>
                   </span>
                 </th>
@@ -123,7 +129,7 @@ export function PriceMatrix({
                         className={`tabular inline-flex flex-col items-end rounded-lg px-2 py-1 ${
                           isCheapest ? "bg-save-soft font-semibold text-save" : "text-ink-soft"
                         }`}
-                        title={`${cell.packs} × ${cell.packLabel} · ${cell.brand} · updated ${freshnessLabel(cell.freshnessMins)}`}
+                        title={`${cell.packs} × ${cell.packLabel} · ${cell.brand}`}
                       >
                         {formatPKR(cell.cost)}
                         <span className="text-[0.66rem] font-normal text-sage-400">
@@ -159,7 +165,9 @@ export function PriceMatrix({
                       ? `−${quote.missing.length} item${quote.missing.length === 1 ? "" : "s"}`
                       : quote.belowMinOrder
                         ? "below min order"
-                        : `incl. ${quote.delivery === 0 ? "free" : formatPKRShort(quote.delivery)} del.`}
+                        : quote.deliveryKnown
+                          ? `incl. ${quote.freeDelivery ? "free" : formatPKRShort(quote.delivery)} del.`
+                          : "delivery fee not counted"}
                   </span>
                 </td>
               );

@@ -172,9 +172,9 @@
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-forest-400) 14%, transparent);
   }
 
-  /* Diagonal hatch used behind "sample data" so it reads as placeholder even
-     in a greyscale screenshot or a printout. */
-  .sample-hatch {
+  /* Diagonal hatch used behind the "supplied prices" badge so it reads as a
+     stand-in for live data even in a greyscale screenshot or a printout. */
+  .data-hatch {
     background-image: repeating-linear-gradient(
       135deg,
       color-mix(in srgb, var(--color-warn) 9%, transparent) 0 6px,

@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Button, Chip, Price } from "@/components/ui/Primitives";
 import { StoreBadge } from "@/components/brand/Logo";
 import { useBasket } from "@/lib/basket/store";
-import { formatPKR, formatPKRShort, formatQuantityInput } from "@/lib/engine/format";
+import { formatPKR, formatQuantityInput, deliveryRuleLabel } from "@/lib/engine/format";
 import { effectivePackPrice } from "@/lib/engine/pricing";
 import { normaliseQuantity } from "@/lib/types";
 import type { CatalogSummary, Store } from "@/lib/types";
@@ -19,7 +19,7 @@ import type { CatalogSummary, Store } from "@/lib/types";
 export function SearchBox({
   autoFocus = false,
   size = "md",
-  placeholder = "Search groceries — rice, atta, chicken, shampoo…",
+  placeholder = "Search groceries — Nesvita, basmati rice, butter, canola oil, cereal…",
 }: {
   autoFocus?: boolean;
   size?: "md" | "lg";
@@ -171,7 +171,7 @@ export function FilterBar({
               key={store.id}
               onClick={() => toggleStore(store.id)}
               aria-pressed={active.stores.includes(store.id)}
-              title={`${store.name} — ${formatPKR(store.deliveryFee)} delivery, free over ${formatPKRShort(store.freeDeliveryOver)}`}
+              title={`${store.name} — ${deliveryRuleLabel(store)}`}
               className={`inline-flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2.5 text-[0.78rem] font-medium transition-all ${
                 active.stores.includes(store.id)
                   ? "border-forest-800 bg-white text-forest-900 shadow-[var(--shadow-card)]"
@@ -328,7 +328,7 @@ export function ProductCard({ summary }: { summary: CatalogSummary }) {
             <StoreBadge storeId={summary.bestStoreId} size="md" showName />
           </div>
 
-          {/* Nine-store spread at a glance: bar length = how far each store is
+          {/* Store spread at a glance: bar length = how far each store is
               from the cheapest. Cheap reads long, dear reads short. */}
           <div className="mt-3 flex items-end gap-[3px]" aria-hidden="true">
             {priceBars.map((bar) => (
@@ -345,7 +345,8 @@ export function ProductCard({ summary }: { summary: CatalogSummary }) {
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[0.76rem]">
             <span className="text-sage-500">
-              {summary.availableAt.length}/{summary.stockedAt.length} stores in stock
+              {summary.availableAt.length}/
+              {summary.availableAt.length + summary.unavailableAt.length} stores have it
             </span>
             {gap > 0 && (
               <span className="rounded-md bg-save-soft px-1.5 py-0.5 font-semibold text-save">
@@ -369,7 +370,7 @@ export function ProductCard({ summary }: { summary: CatalogSummary }) {
           href={`/product/${product.id}`}
           className="inline-flex h-8 items-center rounded-lg px-2.5 text-[0.8rem] font-semibold text-forest-800 hover:bg-cream-200"
         >
-          Compare 9
+          Compare stores
         </Link>
       </div>
     </article>

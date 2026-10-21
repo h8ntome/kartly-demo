@@ -13,8 +13,8 @@ import {
  *
  * Deliberately tiny and dependency-free: rows of {canonicalId, quantity} kept in
  * localStorage, with the comparison engine run on top by `usePlan`. No store
- * library, because the basket is nine numbers and a page reload should not lose
- * them.
+ * library, because the basket is a handful of numbers and a page reload should not
+ * lose them.
  *
  * localStorage is modelled as an external store rather than mirrored into
  * `useState`. That means one read path, no hydrate-then-write effect, and free

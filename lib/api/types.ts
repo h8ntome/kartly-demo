@@ -1,20 +1,20 @@
-import type { CatalogSnapshot, Store } from "@/lib/types";
+import type { CatalogSnapshot, CatalogSource, Store } from "@/lib/types";
 
 /**
  * The one interface every price source must satisfy.
  *
  * Today there is exactly one implementation that talks to anything real
  * (`rest.ts`, waiting on the pricing API you will provide) and one that serves
- * the bundled sample catalogue. The rest of the application only ever sees
+ * the bundled supplied catalogue. The rest of the application only ever sees
  * this shape, which is what makes the swap a config change instead of a
  * rewrite.
  */
 export interface CatalogProvider {
   /** Stable identifier, surfaced in /api/health and the UI's data badge. */
   readonly id: string;
-  /** Whether figures came from a live feed or the bundled sample set. */
-  readonly source: "sample" | "live";
-  /** Human label for the UI, e.g. "Sample catalogue" or "Partner API". */
+  /** Whether figures came from a live feed or the bundled supplied set. */
+  readonly source: CatalogSource;
+  /** Human label for the UI, e.g. "Supplied price set" or "Partner API". */
   readonly label: string;
   /** Why the UI is showing what it is showing — used verbatim in the badge. */
   readonly note: string;
@@ -37,29 +37,32 @@ export interface CatalogProvider {
  * ```json
  * {
  *   "products": [{
- *     "id": "basmati-rice",
- *     "name": "Basmati rice",
+ *     "id": "falak-basmati-rice",
+ *     "name": "Falak Select Basmati Rice (5kg)",
  *     "category": "Pantry & Grains",
  *     "unit": "kg",
  *     "defaultQuantity": 5,
- *     "aliases": ["rice"],
+ *     "aliases": ["basmati rice"],
  *     "offers": [{
- *       "storeId": "imtiaz",
- *       "sku": "IMT-1123",
- *       "title": "Guard Basmati Rice 5kg",
- *       "brand": "Guard",
+ *       "storeId": "hydri",
+ *       "sku": "HYD-1123",
+ *       "title": "Falak Select Basmati Rice 5kg",
+ *       "brand": "Falak",
  *       "quantity": 5, "unit": "kg",
- *       "price": 2745,
- *       "listPrice": 2990,
+ *       "price": 2124,
+ *       "listPrice": 2200,
  *       "promo": { "kind": "percent", "value": 10, "label": "10% off" },
  *       "inStock": true,
  *       "updatedAt": "2026-10-16T09:12:00Z"
  *     }]
  *   }],
- *   "stores": [{ "id": "imtiaz", "name": "Imtiaz", "deliveryFee": 99,
- *                "freeDeliveryOver": 4500 }]
+ *   "stores": [{ "id": "hydri", "name": "Hydri", "deliveryFee": null,
+ *                "freeDeliveryOver": 2000 }]
  * }
  * ```
+ *
+ * A store's `deliveryFee` of null (or an absent fee) means "unknown", and the
+ * engine will not pretend it is free.
  */
 export interface RawCatalog {
   products?: unknown[];

@@ -170,7 +170,8 @@ export function cheapestPack(
       (Math.abs(choice.cost - best.cost) < 1e-9 &&
         (choice.surplus < best.surplus - 1e-9 ||
           (Math.abs(choice.surplus - best.surplus) < 1e-9 &&
-            offer.freshnessMins < best.offer.freshnessMins)))
+            (offer.freshnessMins ?? Number.POSITIVE_INFINITY) <
+              (best.offer.freshnessMins ?? Number.POSITIVE_INFINITY))))
     ) {
       best = choice;
     }
@@ -183,28 +184,56 @@ export function cheapestPack(
  * Delivery
  * ------------------------------------------------------------------ */
 
+export type DeliveryStatus = "no-order" | "free" | "charged" | "unknown";
+
 export interface DeliveryResult {
+  /**
+   * PKR counted into the total. Always 0 when the store's charge is unknown:
+   * an unknown fee is never silently priced as free, it is priced as nothing
+   * and flagged so the UI can say "plus delivery, fee unknown".
+   */
   fee: number;
-  /** True when the order qualified for free delivery. */
+  status: DeliveryStatus;
+  /** False when the charge is not known, which makes the total a floor. */
+  known: boolean;
+  /** True when the order cleared the store's free-delivery threshold. */
   free: boolean;
   /** PKR still needed to reach the free-delivery threshold, 0 when done. */
   gapToFree: number;
 }
 
+/**
+ * Does this subtotal earn free delivery? The threshold has to be *exceeded*:
+ * Hydri's rule is "free above Rs 2,000", so an order of exactly Rs 2,000 does
+ * not qualify.
+ */
+export function earnsFreeDelivery(store: Store, subtotal: number): boolean {
+  return store.freeDeliveryOver !== null && subtotal > store.freeDeliveryOver;
+}
+
 export function deliveryFor(store: Store, subtotal: number): DeliveryResult {
-  if (subtotal <= 0) return { fee: 0, free: false, gapToFree: 0 };
-  if (store.freeDeliveryOver > 0 && subtotal >= store.freeDeliveryOver) {
-    return { fee: 0, free: true, gapToFree: 0 };
+  if (subtotal <= 0) {
+    return { fee: 0, status: "no-order", known: true, free: false, gapToFree: 0 };
+  }
+  if (earnsFreeDelivery(store, subtotal)) {
+    return { fee: 0, status: "free", known: true, free: true, gapToFree: 0 };
+  }
+  const gapToFree =
+    store.freeDeliveryOver === null ? 0 : Math.max(0, store.freeDeliveryOver - subtotal);
+  if (store.deliveryFee === null) {
+    return { fee: 0, status: "unknown", known: false, free: false, gapToFree };
   }
   return {
     fee: store.deliveryFee,
+    status: "charged",
+    known: true,
     free: false,
-    gapToFree: store.freeDeliveryOver > 0 ? Math.max(0, store.freeDeliveryOver - subtotal) : 0,
+    gapToFree,
   };
 }
 
-/** Does the order clear the store's minimum basket? */
+/** Does the order clear the store's minimum basket? Unknown means no limit. */
 export function meetsMinimum(store: Store, subtotal: number): boolean {
   if (subtotal <= 0) return false;
-  return subtotal >= store.minOrder;
+  return store.minOrder === null || subtotal >= store.minOrder;
 }

@@ -36,7 +36,9 @@ function SavingsPill({ plan }: { plan: BasketPlan | null }) {
   if (!plan?.bestSingle) return null;
   // Always measured against the dearest store that could actually fill the
   // basket, so the claim is "vs shopping badly", never vs an imaginary price.
+  // When a delivery charge is unknown the gap is an estimate, not a promise.
   const shown = plan.savings.bestVsWorst;
+  const certain = plan.savings.savingsCertain;
 
   return (
     <motion.span
@@ -56,7 +58,7 @@ function SavingsPill({ plan }: { plan: BasketPlan | null }) {
       onBlur={() => setOpen(false)}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-save" />
-      Save {formatPKRShort(shown)}
+      {certain ? `Save ${formatPKRShort(shown)}` : `Est. saving ${formatPKRShort(shown)}`}
       <AnimatePresence>
         {open && (
           <motion.span
@@ -82,6 +84,16 @@ function SavingsPill({ plan }: { plan: BasketPlan | null }) {
             <br />
             Buying everything at the dearest store that stocks it:{" "}
             <strong className="text-ink">{formatPKRShort(plan.worstSingle?.total ?? 0)}</strong>
+            {!certain && (
+              <>
+                <br />*
+                {" "}
+                {plan.savings.deliveryUnknownStores.length === 1
+                  ? "One shop in the plan does not publish a delivery charge"
+                  : "Some shops in the plan do not publish a delivery charge"}
+                , so the real total may be higher.
+              </>
+            )}
           </motion.span>
         )}
       </AnimatePresence>
@@ -95,17 +107,17 @@ export function DataBadge({ status }: { status?: DataStatusLike }) {
     <span
       title={
         status?.note ??
-        "Illustrative Karachi prices for demonstration. Not live store data."
+        "Prices supplied for the six stores Kartly compares. Not live checkout prices."
       }
       className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.07em] ${
-        live ? "bg-forest-800 text-lime-400" : "sample-hatch bg-warn-soft text-warn ring-1 ring-inset ring-warn/20"
+        live ? "bg-forest-800 text-lime-400" : "data-hatch bg-warn-soft text-warn ring-1 ring-inset ring-warn/20"
       }`}
     >
       <span
         className={`h-1.5 w-1.5 rounded-full ${live ? "bg-lime-400" : "bg-warn"}`}
         aria-hidden="true"
       />
-      {live ? "Live prices" : "Sample data"}
+      {live ? "Live prices" : "Supplied prices"}
     </span>
   );
 }

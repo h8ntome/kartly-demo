@@ -6,22 +6,23 @@ import { STORES } from "@/lib/catalog/stores";
 import { StoreBadge } from "@/components/brand/Logo";
 import { AnimatedNumber, GrowBar, Reveal } from "@/components/motion/Motion";
 import { LinkButton, SectionHeading, Tag } from "@/components/ui/Primitives";
-import { formatPKR, formatPKRShort, freshnessLabel } from "@/lib/engine/format";
+import { deliveryRuleLabel } from "@/lib/engine/format";
 import type { ProductDetail, StoreId } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Supermarkets",
   description:
-    "All nine Karachi supermarkets Kartly compares, with delivery fees, free-delivery thresholds, minimum orders and how often each one is actually the cheapest.",
+    "The Karachi supermarkets Kartly compares, with their delivery rules and how often each one is actually the cheapest.",
 };
 
 /**
  * Per-store stats, measured from the catalogue rather than asserted.
  *
  * The price index answers the question a shopper actually has — "is this shop
- * cheap *for me*?" — by pricing one unit of every product it stocks against the
- * best price that exists anywhere. 100 means it is the cheapest shop for every
- * single item; anything above is what you give up by shopping only there.
+ * cheap *for me*?" — by pricing one unit of every product it has in stock
+ * against the best price that exists anywhere. 100 means it is the cheapest
+ * shop for every single item; anything above is what you give up by shopping
+ * only there.
  */
 interface StoreStat {
   storeId: StoreId;
@@ -33,25 +34,15 @@ interface StoreStat {
   /** What buying one unit of everything here would cost, PKR. */
   basketValue: number;
   bestValue: number;
-  freshestMins: number;
-  promos: number;
 }
 
 function buildStats(products: ProductDetail[]): StoreStat[] {
   const acc = new Map<
     StoreId,
-    { stocked: number; inStock: number; cheapestFor: number; value: number; best: number; freshest: number; promos: number }
+    { stocked: number; inStock: number; cheapestFor: number; value: number; best: number }
   >();
   for (const store of STORES) {
-    acc.set(store.id, {
-      stocked: 0,
-      inStock: 0,
-      cheapestFor: 0,
-      value: 0,
-      best: 0,
-      freshest: Number.POSITIVE_INFINITY,
-      promos: 0,
-    });
+    acc.set(store.id, { stocked: 0, inStock: 0, cheapestFor: 0, value: 0, best: 0 });
   }
 
   for (const product of products) {
@@ -80,8 +71,6 @@ function buildStats(products: ProductDetail[]): StoreStat[] {
       const entry = acc.get(offer.storeId);
       if (!entry) continue;
       entry.stocked += 1;
-      if (offer.promo) entry.promos += 1;
-      entry.freshest = Math.min(entry.freshest, offer.freshnessMins);
     }
   }
 
@@ -93,8 +82,6 @@ function buildStats(products: ProductDetail[]): StoreStat[] {
     basketValue: Math.round(entry.value),
     bestValue: Math.round(entry.best),
     priceIndex: entry.best > 0 ? (entry.value / entry.best) * 100 : 100,
-    freshestMins: Number.isFinite(entry.freshest) ? entry.freshest : 0,
-    promos: entry.promos,
   }));
 }
 
@@ -113,18 +100,20 @@ export default async function StoresPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-2xl">
           <div className="flex flex-wrap items-center gap-2">
-            <Tag tone={live ? "live" : "sample"}>{live ? "Live prices" : "Sample prices"}</Tag>
+            <Tag tone={live ? "live" : "warn"}>
+              {live ? "Live prices" : "Supplied prices"}
+            </Tag>
             <span className="text-[0.78rem] text-sage-500">
-              {snapshot.products.length} products · {snapshot.products.reduce((n, p) => n + p.offers.length, 0)} offers
+              {snapshot.products.length} products · {snapshot.products.reduce((n, p) => n + p.offers.length, 0)} prices
             </span>
           </div>
           <h1 className="mt-4 text-[2.1rem] leading-[1.06] text-forest-950 sm:text-[2.7rem]">
-            Nine supermarkets, priced the way you actually shop
+            {STORES.length} supermarkets, priced the way you actually shop
           </h1>
           <p className="mt-4 text-[1rem] leading-relaxed text-sage-600">
             No store is cheap at everything. The table below is measured from the catalogue Kartly
-            holds right now: how much each shop carries, how often it is the cheapest place for a
-            product, and what it would cost to buy one unit of everything it stocks.
+            holds right now: how much each shop has in stock, how often it is the cheapest place for
+            a product, and what it would cost to buy one of everything it has.
           </p>
         </div>
         <div className="flex gap-2">
@@ -197,7 +186,7 @@ export default async function StoresPage() {
         <SectionHeading
           eyebrow="Store by store"
           title="The rules each one charges you by"
-          lead="Delivery fee, the subtotal that makes it free, and the minimum order a courier will turn up for. These four numbers decide most two-store split decisions."
+          lead="The delivery charge, and the subtotal that makes it free. Where a store has not published a charge, Kartly leaves it unknown and says so — an unknown fee is never counted as a free one."
         />
       </div>
 
@@ -221,7 +210,9 @@ export default async function StoresPage() {
                       <h3 className="font-display text-[1.3rem] font-semibold leading-tight text-forest-950">
                         {store.name}
                       </h3>
-                      <p className="text-[0.8rem] text-sage-500">{store.coverage}</p>
+                      <p className="text-[0.8rem] text-sage-500">
+                        {stat.inStock} of {snapshot.products.length} products available
+                      </p>
                     </div>
                   </div>
                   <span
@@ -233,33 +224,20 @@ export default async function StoresPage() {
                   </span>
                 </div>
 
-                <p className="mt-4 text-[0.92rem] leading-relaxed text-sage-600">{store.blurb}</p>
+                <p className="mt-4 text-[0.92rem] leading-relaxed text-sage-600">
+                  {`${deliveryRuleLabel(store)}.`}
+                </p>
 
-                <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-[0.86rem] sm:grid-cols-4">
-                  <Stat label="Delivery" value={store.deliveryFee === 0 ? "Free" : formatPKR(store.deliveryFee)} />
-                  <Stat
-                    label="Free over"
-                    value={store.freeDeliveryOver === 0 ? "Never" : formatPKRShort(store.freeDeliveryOver)}
-                  />
-                  <Stat label="Min order" value={formatPKRShort(store.minOrder)} />
-                  <Stat label="Delivery" value={store.eta} wide />
-                </dl>
-
-                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-cream-200 pt-4 text-[0.82rem] sm:grid-cols-4">
+                <div className="mt-5 grid grid-cols-2 gap-3 border-t border-cream-200 pt-4 text-[0.82rem] sm:grid-cols-3">
                   <Metric
                     value={stat.inStock}
-                    label={`products in stock (${stat.stocked} listed)`}
+                    label={`products available (${stat.stocked} priced)`}
                   />
                   <Metric value={stat.cheapestFor} label="cheapest here" />
-                  <Metric value={stat.promos} label="offers running" />
-                  <span>
-                    <span className="block text-[0.72rem] uppercase tracking-[0.07em] text-sage-400">
-                      prices
-                    </span>
-                    <span className="block font-semibold text-ink">
-                      {freshnessLabel(stat.freshestMins)}
-                    </span>
-                  </span>
+                  <Metric
+                    value={snapshot.products.length - stat.inStock}
+                    label="not available here"
+                  />
                 </div>
 
                 <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -283,23 +261,14 @@ export default async function StoresPage() {
       </div>
 
       <p className="mt-12 max-w-3xl rounded-xl bg-cream-100 px-4 py-3 text-[0.8rem] leading-relaxed text-sage-600">
-        Store names are real Karachi supermarkets; the prices, fees and thresholds in this demo are{" "}
+        Store names are real Karachi supermarkets; the prices, fees and thresholds in this app are{" "}
         {live ? (
           "read from the connected price source"
         ) : (
-          <strong className="font-semibold text-warn">illustrative sample figures</strong>
+          <strong className="font-semibold text-warn">the figures supplied to Kartly</strong>
         )}{" "}
         and are not their published price lists. None of these stores is a Kartly partner.
       </p>
-    </div>
-  );
-}
-
-function Stat({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
-  return (
-    <div className={wide ? "col-span-2" : ""}>
-      <dt className="text-[0.7rem] uppercase tracking-[0.07em] text-sage-400">{label}</dt>
-      <dd className="font-semibold text-ink">{value}</dd>
     </div>
   );
 }

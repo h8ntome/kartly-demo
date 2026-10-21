@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProduct, getSnapshot } from "@/lib/api/index";
+import { getProduct, getSnapshot, getStores } from "@/lib/api/index";
 import { ProductComparison } from "@/components/product/ProductComparison";
 import { StoreBadge } from "@/components/brand/Logo";
 import { Tag } from "@/components/ui/Primitives";
@@ -17,15 +17,16 @@ export async function generateMetadata({
   const { id } = await params;
   const product = await getProduct(id);
   if (!product) return { title: "Product not found" };
+  const storeCount = (await getStores()).length;
   const offers = product.offers.filter((offer) => offer.inStock);
   const cheapest = offers.length
     ? Math.min(...offers.map((offer) => cheapestPack([offer], offer.quantity, offer.unit)?.cost ?? Infinity))
     : 0;
   return {
-    title: `${product.name} — prices at 9 Karachi supermarkets`,
+    title: `${product.name} — prices at ${storeCount} Karachi supermarkets`,
     description: cheapest
-      ? `Compare ${product.name} across nine Karachi supermarkets from ${formatPKR(cheapest)}.`
-      : `Compare ${product.name} across nine Karachi supermarkets.`,
+      ? `Compare ${product.name} across ${storeCount} Karachi supermarkets from ${formatPKR(cheapest)}.`
+      : `Compare ${product.name} across ${storeCount} Karachi supermarkets.`,
   };
 }
 
@@ -74,13 +75,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             <h1 className="text-[1.9rem] leading-tight text-forest-950 sm:text-[2.3rem]">
               {product.name}
             </h1>
-            <Tag tone={snapshot.source === "live" ? "live" : "sample"}>
-              {snapshot.source === "live" ? "Live prices" : "Sample prices"}
+            <Tag tone={snapshot.source === "live" ? "live" : "warn"}>
+              {snapshot.source === "live" ? "Live prices" : "Supplied prices"}
             </Tag>
           </div>
           <p className="mt-1.5 text-[0.9rem] text-sage-600">
-            {product.category} · standard size {formatQuantityInput(product.defaultQuantity)}{" "}
-            {product.unit} · found at {new Set(product.offers.map((offer) => offer.storeId)).size} of{" "}
+            {product.category} · {formatQuantityInput(product.defaultQuantity)}{" "}
+            {product.unit} · available at {new Set(product.offers.map((offer) => offer.storeId)).size} of{" "}
             {snapshot.stores.length} stores
             {cheapest && (
               <>

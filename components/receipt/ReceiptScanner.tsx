@@ -23,12 +23,12 @@ import type { ReceiptParse } from "@/lib/receipt/parse";
  * says "I read 11 of 13, check these two" instead of asking to be trusted.
  */
 
-interface Sample {
+interface Example {
   store: string;
   text: string;
 }
 
-type Mode = "paste" | "photo" | "sample";
+type Mode = "paste" | "photo" | "example";
 
 interface Edit {
   canonicalId: string | null;
@@ -49,14 +49,14 @@ interface ResolvedLine {
   product: ProductDetail | null;
 }
 
-export function ReceiptScanner({ samples }: { samples: Sample[] }) {
+export function ReceiptScanner({ examples }: { examples: Example[] }) {
   const router = useRouter();
   const { replaceAll, clear } = useBasket();
   const { products, loading: catalogueLoading } = useCatalog();
   const productsList = useMemo(() => [...products.values()], [products]);
 
-  const [mode, setMode] = useState<Mode>("sample");
-  const [text, setText] = useState(samples[0]?.text ?? "");
+  const [mode, setMode] = useState<Mode>("example");
+  const [text, setText] = useState(examples[0]?.text ?? "");
   const [parsed, setParsed] = useState<ReceiptParse | null>(null);
   const [edits, setEdits] = useState<Map<number, Edit>>(new Map());
   const [busy, setBusy] = useState<string | null>(null);
@@ -127,7 +127,7 @@ export function ReceiptScanner({ samples }: { samples: Sample[] }) {
         setOcr(null);
         setError(
           `OCR could not run (${cause instanceof Error ? cause.message : "offline?"}). ` +
-            "The engine loads from a CDN; paste the receipt text or use a sample instead.",
+            "The engine loads from a CDN; paste the receipt text instead.",
         );
       } finally {
         setBusy(null);
@@ -229,7 +229,7 @@ export function ReceiptScanner({ samples }: { samples: Sample[] }) {
             <div className="flex gap-1 rounded-xl bg-cream-200/70 p-1" role="tablist" aria-label="Receipt input method">
               {(
                 [
-                  ["sample", "Sample receipt"],
+                  ["example", "Example bill"],
                   ["paste", "Paste text"],
                   ["photo", "Photo"],
                 ] as const
@@ -264,25 +264,25 @@ export function ReceiptScanner({ samples }: { samples: Sample[] }) {
             )}
           </div>
 
-          {mode === "sample" && (
+          {mode === "example" && (
             <div className="mt-5">
               <p className="text-[0.86rem] text-sage-600">
-                Two transcribed Karachi receipts — the terse, inconsistent format real ones come in.
-                Pick one:
+                Bills printed from Kartly&apos;s own price data, in the terse, inconsistent
+                format real Karachi receipts come in. Pick one:
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {samples.map((sample) => (
+                {examples.map((example) => (
                   <button
-                    key={sample.store}
+                    key={example.store}
                     onClick={() => {
-                      setText(sample.text);
-                      void runParse(sample.text);
+                      setText(example.text);
+                      void runParse(example.text);
                     }}
                     className="rounded-xl border border-cream-300 bg-cream-50 px-4 py-2.5 text-left text-[0.84rem] font-medium text-forest-900 transition-colors hover:border-forest-400 hover:bg-cream-100"
                   >
-                    {sample.store}
+                    {example.store}
                     <span className="block text-[0.72rem] font-normal text-sage-500">
-                      {sample.text.split("\n").filter((l) => l.trim()).length} printed lines
+                      {example.text.split("\n").filter((l) => l.trim()).length} printed lines
                     </span>
                   </button>
                 ))}
@@ -526,7 +526,7 @@ export function ReceiptScanner({ samples }: { samples: Sample[] }) {
             <ol className="mt-3 space-y-2">
               <li>1. The receipt is read line by line — quantity, pack size, price.</li>
               <li>2. Each line is matched to a product in the catalogue, with a confidence.</li>
-              <li>3. You fix what it got wrong, then the basket is priced at all nine stores.</li>
+              <li>3. You fix what it got wrong, then the basket is priced at every store.</li>
             </ol>
             <p className="mt-4 rounded-lg bg-warn-soft px-3 py-2 text-[0.78rem] text-warn">
               Nothing is uploaded except the text. Photos stay in the browser.
@@ -590,7 +590,7 @@ export function ReceiptScanner({ samples }: { samples: Sample[] }) {
             <div className="rounded-4xl border border-cream-200 bg-forest-900 p-5 text-cream-50">
               <p className="text-[0.72rem] uppercase tracking-[0.1em] text-lime-400">Next</p>
               <p className="mt-1 text-[0.86rem] leading-relaxed text-cream-200">
-                Load these into your basket and Kartly will price them at all nine supermarkets.
+                Load these into your basket and Kartly will price them at every store it compares.
               </p>
               <div className="mt-4 flex flex-col gap-2">
                 <Button variant="accent" onClick={() => addToBasket(true)} disabled={!selected.length}>

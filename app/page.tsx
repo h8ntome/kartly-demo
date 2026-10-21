@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getSnapshot, summarise } from "@/lib/api/index";
 import { compareBasket, toBasketItems } from "@/lib/engine/plan";
-import { STARTER_BASKET } from "@/lib/catalog/sample/generate";
+import { EXAMPLE_BASKET } from "@/lib/catalog/dataset";
 import { STORES } from "@/lib/catalog/stores";
 import { SearchBox, ProductCard } from "@/components/search/SearchUi";
 import { StoreTotalsChart, SavingsLedger } from "@/components/basket/Verdict";
@@ -11,7 +11,7 @@ import { LoadBasketCta } from "@/components/home/HeroActions";
 import { AnimatedNumber, Reveal } from "@/components/motion/Motion";
 import { EmptyState, LinkButton, SectionHeading, Tag } from "@/components/ui/Primitives";
 import { StoreBadge } from "@/components/brand/Logo";
-import { formatPKR, formatPKRShort, freshnessLabel } from "@/lib/engine/format";
+import { formatPKR, formatPKRShort, deliveryRuleLabel } from "@/lib/engine/format";
 import type { ProductDetail } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -22,14 +22,14 @@ export const metadata: Metadata = {
  * Home page.
  *
  * Every number on this screen is produced by the same engine the basket page
- * runs, over the same sample catalogue. Nothing here is typed in, which is the
- * only reason a demo like this is worth showing anyone.
+ * runs, over the same supplied catalogue. Nothing here is typed in, which is
+ * the only reason a comparison like this is worth showing anyone.
  */
 export default async function HomePage() {
   const snapshot = await getSnapshot();
   const products = new Map<string, ProductDetail>(snapshot.products.map((p) => [p.id, p]));
 
-  const rows = STARTER_BASKET.map((entry, index) => ({
+  const rows = EXAMPLE_BASKET.map((entry, index) => ({
     id: `hero-${index}`,
     canonicalId: entry.canonicalId,
     quantity: entry.quantity,
@@ -75,7 +75,9 @@ export default async function HomePage() {
         <div className="relative mx-auto grid w-full max-w-[84rem] gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-14">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <Tag tone={live ? "live" : "sample"}>{live ? "Live prices" : "Sample prices"}</Tag>
+              <Tag tone={live ? "live" : "warn"}>
+                {live ? "Live prices" : "Supplied prices"}
+              </Tag>
               <span className="text-[0.78rem] text-sage-500">
                 {snapshot.stores.length} Karachi supermarkets · {snapshot.products.length} products
               </span>
@@ -90,9 +92,9 @@ export default async function HomePage() {
             </h1>
 
             <p className="mt-5 max-w-xl text-[1.05rem] leading-relaxed text-sage-600">
-              Kartly prices your whole basket at every supermarket in the city — pack sizes, offers,
-              stock and delivery included — then tells you the cheapest practical way to buy it.
-              One shop, two shops, sometimes four: you do not choose, the arithmetic does.
+              Kartly prices your whole basket at every supermarket it has prices for — pack sizes,
+              availability and delivery included — then tells you the cheapest practical way to buy
+              it. One shop, two shops, sometimes more: you do not choose, the arithmetic does.
             </p>
 
             <div className="mt-7 max-w-xl">
@@ -103,8 +105,8 @@ export default async function HomePage() {
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <LoadBasketCta
-                rows={STARTER_BASKET}
-                label={`Try it on a ${STARTER_BASKET.length}-line monthly shop`}
+                rows={EXAMPLE_BASKET}
+                label={`Try it on a ${EXAMPLE_BASKET.length}-line basket`}
               />
               <LinkButton href="/receipt" variant="outline" size="lg">
                 Scan a receipt
@@ -118,7 +120,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* The verdict card, computed at render time from the sample basket. */}
+          {/* The verdict card, computed at render time from the example basket. */}
           {plan && plan.bestSingle && (
             <Reveal className="w-full">
               <div className="rounded-4xl border border-cream-200 bg-white p-6 shadow-[var(--shadow-lift)] sm:p-7">
@@ -138,7 +140,7 @@ export default async function HomePage() {
                   </div>
                   <div className="rounded-xl bg-save-soft px-3 py-2 text-right">
                     <p className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-save">
-                      vs dearest
+                      {plan.savings.savingsCertain ? "vs dearest" : "vs dearest (est.)"}
                     </p>
                     <p className="tabular font-display text-xl font-semibold text-save">
                       −{formatPKRShort(plan.savings.bestVsWorst)}
@@ -187,10 +189,12 @@ export default async function HomePage() {
                 </div>
 
                 <p className="mt-4 text-[0.76rem] leading-relaxed text-sage-500">
-                  Oldest price in this plan: {freshnessLabel(plan.oldestPriceMins)}.{" "}
+                  {plan.savings.bestDeliveryKnown
+                    ? "Every delivery charge in this plan is a published one."
+                    : "Some delivery charges in this plan are not published, so this total is a floor and may be higher."}{" "}
                   {live
                     ? "Prices came from the connected feed."
-                    : "Illustrative figures built for this demo — not the stores' price lists."}
+                    : "Prices are the supplied figures for these stores, not live checkout prices."}
                 </p>
               </div>
             </Reveal>
@@ -205,13 +209,13 @@ export default async function HomePage() {
             <SectionHeading
               eyebrow="The trap"
               title="The cheapest items do not make the cheapest basket"
-              lead="Everyone knows which shop has cheap atta. Almost nobody knows which shop is cheap for their whole list, because the answer depends on pack rounding, offers, what is actually in stock, and a delivery fee you only see at checkout."
+              lead="Everyone knows which shop has cheap rice. Almost nobody knows which shop is cheap for their whole list, because the answer depends on pack rounding, what is actually available, and a delivery fee you only see at checkout."
             />
             <div className="mt-7 space-y-4 text-[0.95rem] leading-relaxed text-sage-600">
               <p>
-                On the basket to the right, {incompleteStores} of the {plan?.quotes.length ?? 9}{" "}
-                stores cannot supply every line on the list, and {mirageCopy}. The store that wins is
-                not the one you would have guessed.
+                On the basket to the right, {incompleteStores} of the {plan?.quotes.length ?? 6}{" "}
+                stores cannot supply every line on the list, and {mirageCopy}. The store that wins
+                is not the one you would have guessed.
               </p>
               <p>
                 Splitting this list across {plan?.bestPlan
@@ -219,9 +223,9 @@ export default async function HomePage() {
                     ? "one shop"
                     : `${plan.bestPlan.storeCount} shops`
                   : "more than one shop"}{" "}
-                saves {plan ? formatPKR(plan.savings.splitVsSingle) : "—"} here — but only after
-                every extra delivery fee, which is exactly the arithmetic Kartly does and shoppers
-                almost never do.
+                is worth {plan ? formatPKR(plan.savings.splitVsSingle) : "—"} here — counted only
+                against delivery charges the stores actually publish, which is exactly the
+                arithmetic Kartly does and shoppers almost never do.
               </p>
             </div>
             <div className="mt-7">
@@ -236,7 +240,7 @@ export default async function HomePage() {
               Where the money goes
             </h3>
             <p className="mb-4 mt-1 text-[0.82rem] text-sage-600">
-              Same basket, same nine stores, four different totals.
+              Same basket, same {snapshot.stores.length} stores, different totals.
             </p>            {plan && <SavingsLedger plan={plan} />}
           </Reveal>
         </div>
@@ -279,8 +283,8 @@ export default async function HomePage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <SectionHeading
             eyebrow="Widest gaps"
-            title="Same product, nine prices"
-            lead="The six products with the largest difference between the cheapest and dearest shop right now. This spread is what a shopper absorbs silently every month."
+            title={`Same product, ${snapshot.stores.length} prices`}
+            lead="The products with the largest difference between the cheapest and dearest shop. This spread is what a shopper absorbs silently every month."
           />
           <LinkButton href="/search?sort=savings-desc" variant="outline">
             See all gaps
@@ -308,9 +312,9 @@ export default async function HomePage() {
       <section className="mx-auto w-full max-w-[84rem] px-4 pb-16 sm:px-6 sm:pb-20">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <SectionHeading
-            eyebrow="The nine"
+            eyebrow={`The ${snapshot.stores.length === 6 ? "six" : snapshot.stores.length}`}
             title="Delivery fees are the whole story"
-            lead="A Rs 200 cheaper basket loses to a free-delivery threshold every time. These are the rules Kartly prices against."
+            lead="A Rs 200 cheaper basket loses to a free-delivery threshold every time. These are the rules Kartly prices against — and where a store has not published a charge, Kartly says so instead of guessing."
           />
           <LinkButton href="/stores" variant="outline">
             Compare the stores
@@ -328,9 +332,7 @@ export default async function HomePage() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold text-forest-950">{store.name}</span>
                 <span className="block text-[0.78rem] text-sage-500">
-                  {store.deliveryFee === 0
-                    ? "free delivery"
-                    : `${formatPKR(store.deliveryFee)} · free over ${formatPKRShort(store.freeDeliveryOver)}`}
+                  {deliveryRuleLabel(store)}
                 </span>
               </span>
               <span className="text-sage-300 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-forest-600">
@@ -348,16 +350,16 @@ const STEPS = [
   {
     glyph: "🧾",
     title: "Build your list",
-    body: "Search products, type quantities the way you think in — 5 kg, 2 dozen — or scan a photo of a receipt and let Kartly read it.",
+    body: "Search products, type quantities the way you think in — 5 kg, 2 pieces — or scan a photo of a receipt and let Kartly read it.",
   },
   {
     glyph: "⚖️",
-    title: "Compare nine stores",
-    body: "Every line is priced at every store that stocks it, in the pack you would actually have to buy, after offers, with stock checked.",
+    title: "Compare every store",
+    body: "Every line is priced at every store that has it, in the pack you would actually have to buy, with availability checked and unavailable lines counted as missing.",
   },
   {
     glyph: "🛒",
     title: "Buy the cheapest plan",
-    body: "Kartly returns the cheapest single store, the best two-store split, and what each decision is worth — so you can ignore the maths.",
+    body: "Kartly returns the cheapest single store, the best split across stores, and what each decision is worth — so you can ignore the maths.",
   },
 ];

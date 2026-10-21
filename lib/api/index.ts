@@ -4,21 +4,22 @@
  *
  * Resolution order:
  *   KARTLY_API_PROVIDER=rest + KARTLY_API_BASE_URL set  -> live REST provider
- *   anything else                                        -> bundled sample set
+ *   anything else                                        -> bundled supplied set
  *
- * A live provider that fails falls back to the sample snapshot and the snapshot
- * keeps `source: "sample"`, so the UI badge flips from "Live" to "Sample"
- * automatically. There is no code path in this app that can show sample prices
- * under a "live" label.
+ * A live provider that fails falls back to the bundled snapshot and the
+ * snapshot keeps `source: "supplied"`, so the UI badge flips from "Live
+ * prices" to "Supplied prices" automatically. There is no code path in this
+ * app that can show supplied prices under a "live" label.
  */
 
 import { apiConfig, liveConfigured, type ApiConfig } from "@/lib/api/config";
 import { sharedCache } from "@/lib/api/cache";
 import type { CatalogProvider } from "@/lib/api/types";
-import { sampleProvider } from "@/lib/api/providers/sample";
+import { localProvider } from "@/lib/api/providers/local";
 import { createRestProvider } from "@/lib/api/providers/rest";
 import { rankProducts } from "@/lib/api/normalize";
 import {
+  STORE_IDS,
   type CatalogFilters,
   type CatalogSnapshot,
   type CatalogSummary,
@@ -31,8 +32,8 @@ import {
 import { effectivePackPrice } from "@/lib/engine/pricing";
 
 export function resolveProvider(config: ApiConfig = apiConfig()): CatalogProvider {
-  if (liveConfigured(config)) return createRestProvider(config, sampleProvider);
-  return sampleProvider;
+  if (liveConfigured(config)) return createRestProvider(config, localProvider);
+  return localProvider;
 }
 
 function snapshotCache(config: ApiConfig) {
@@ -49,7 +50,7 @@ export async function getSnapshot(): Promise<CatalogSnapshot> {
     return await snapshotCache(config).wrap("snapshot", () => provider.load());
   } catch {
     // Last resort: never leave the user with a broken page.
-    return sampleProvider.load();
+    return localProvider.load();
   }
 }
 
@@ -92,7 +93,7 @@ export function summarise(product: ProductDetail): CatalogSummary {
     const price = effectivePackPrice(offer, 1);
     const current = perStore.get(offer.storeId);
     if (current === undefined || price < current) perStore.set(offer.storeId, price);
-    freshest = Math.min(freshest, offer.freshnessMins);
+    if (typeof offer.freshnessMins === "number") freshest = Math.min(freshest, offer.freshnessMins);
     const unitPrice = price / offer.quantity;
     if (!bestUnit || unitPrice < bestUnit.price) bestUnit = { price: unitPrice, unit: offer.unit };
   }
@@ -105,13 +106,14 @@ export function summarise(product: ProductDetail): CatalogSummary {
   return {
     product,
     bestPrice: best?.price ?? 0,
-    bestStoreId: best?.storeId ?? ("naheed" as StoreId),
+    bestStoreId: best?.storeId ?? (STORE_IDS[0] as StoreId),
     worstPrice: worst,
     stockedAt,
     availableAt,
+    unavailableAt: STORE_IDS.filter((id) => !availableAt.includes(id)),
     valueRatio: best && worst > 0 ? best.price / worst : 1,
     spread: Math.max(0, worst - (best?.price ?? 0)),
-    freshestMins: Number.isFinite(freshest) ? freshest : 0,
+    freshestMins: Number.isFinite(freshest) ? freshest : null,
     brands: [...brands].sort(),
     bestUnitPrice: bestUnit ? bestUnit.price : null,
     bestUnit: bestUnit ? (bestUnit.unit as CatalogSummary["bestUnit"]) : null,
@@ -192,4 +194,4 @@ export async function offersFor(canonicalIds: string[]): Promise<Offer[]> {
 }
 
 export type { CatalogProvider };
-export { sampleProvider };
+export { localProvider };

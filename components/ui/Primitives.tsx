@@ -89,7 +89,7 @@ export function Tag({
   children,
   className = "",
 }: {
-  tone?: "neutral" | "save" | "spend" | "warn" | "live" | "sample";
+  tone?: "neutral" | "save" | "spend" | "warn" | "live";
   children: ReactNode;
   className?: string;
 }) {
@@ -99,7 +99,6 @@ export function Tag({
     spend: "bg-spend-soft text-spend ring-spend/20",
     warn: "bg-warn-soft text-warn ring-warn/20",
     live: "bg-forest-800 text-lime-400 ring-forest-700",
-    sample: "bg-warn-soft text-warn ring-warn/25",
   } as const;
   return (
     <span
