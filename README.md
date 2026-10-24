@@ -49,7 +49,7 @@ Every route is designed phone-first and scales up to a two-column desktop layout
 | `/search` | Search and filter the catalogue; every product shows the cheapest store and the spread across stores |
 | `/product/[id]` | One product across all six stores — pack size, unit price, where it is not available, and an add bar |
 | `/basket` | The optimiser: line editor, savings headline, the cheapest plan (any number of shops), price grid, savings ledger |
-| `/checkout` | Demo checkout: one order per shop, address, slot, payment, totals, and a "Place demo order" button |
+| `/checkout` | Demo checkout: one order per shop, address, **ASAP or a scheduled window**, payment, totals, and a "Place demo order" button |
 | `/order/[id]` | Demo order tracking: confirmed → being picked → out for delivery → delivered, with the plan it came from |
 | `/orders` | Demo order history, held in this browser |
 | `/stores` | All six supermarkets with their delivery rules and a measured price index |
@@ -134,6 +134,12 @@ contacted, no payment is taken, and the screen says so. The stage is a pure func
 timestamp, so a refresh keeps the story consistent instead of resetting it, and the timings are
 compressed (`ORDER_STAGES` in `lib/orders/store.tsx`) so the progression is visible inside a
 presentation.
+
+Timing is chosen, not invented (`lib/orders/slots.ts`). **ASAP** is built from the shopper's live
+clock — "now, ~by 6:09 am" — and counts from the moment the order is placed. Scheduled windows are
+two-hour blocks from the same clock and are quoted inside themselves. Either way the checkout chip
+and the tracking screen call the same `etaFor`, so the time promised at checkout is the time the
+order repeats; a window that has already closed is never offered.
 
 ## Testing
 

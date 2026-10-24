@@ -12,7 +12,20 @@
 import { compareBasket, toBasketItems, type BasketItem } from "../lib/engine/plan";
 import { getSnapshot } from "../lib/api/index";
 import { EXAMPLE_BASKET } from "../lib/catalog/dataset";
-import { ORDER_STAGES, progressFor, stageFor, type DemoOrder } from "../lib/orders/store";
+import {
+  ORDER_STAGES,
+  clockLabel,
+  progressFor,
+  stageFor,
+  type DemoOrder,
+} from "../lib/orders/store";
+import {
+  ASAP_LEAD_MS,
+  SLOT_LEAD_MS,
+  asapSlot,
+  buildSlots,
+  etaFor,
+} from "../lib/orders/slots";
 import type { ProductDetail } from "../lib/types";
 
 let checks = 0;
@@ -156,6 +169,49 @@ async function main() {
     equal(stageFor(order, createdAt + stage.atMs), stage.id, `${stage.id} is reached at its own timestamp`);
     ok(stage.id !== previous, `${stage.id} is not a duplicate stage`);
     previous = stage.id;
+  }
+
+  console.log("Delivery timing");
+  const clock = new Date(createdAt);
+  const asap = asapSlot(clock);
+  const windows = buildSlots(clock);
+  equal(asap.label, "ASAP", "the live option is labelled ASAP");
+  ok(
+    asap.hint.includes(clockLabel(createdAt + ASAP_LEAD_MS)),
+    "the ASAP hint quotes the exact time the order will later estimate",
+  );
+  equal(
+    etaFor(asap, createdAt),
+    createdAt + ASAP_LEAD_MS,
+    "an ASAP order is estimated one lead time after it is placed",
+  );
+  ok(windows.length >= 2, "scheduled windows are still offered next to ASAP");
+  for (const entry of windows) {
+    ok(entry.startAt > createdAt, `${entry.label}: a window never opens in the past`);
+    equal(
+      etaFor(entry, createdAt),
+      entry.startAt + SLOT_LEAD_MS,
+      `${entry.label}: a window is quoted inside itself, not from now`,
+    );
+  }
+  for (const hour of [0, 3, 9, 17, 21, 23]) {
+    const late = new Date(2026, 9, 24, hour, 5);
+    const list = buildSlots(late);
+    equal(list.length, 3, `${String(hour).padStart(2, "0")}:05 still offers three windows`);
+    ok(
+      list.every((entry) => entry.startAt > late.getTime()),
+      `${String(hour).padStart(2, "0")}:05 offers no window that has already closed`,
+    );
+  }
+
+  const asapOrder: DemoOrder = { ...order, slot: asap.label, etaAt: etaFor(asap, order.createdAt) };
+  ok(asapOrder.etaAt > asapOrder.createdAt, "the ASAP estimate is in the future");
+  for (const stage of ORDER_STAGES) {
+    equal(
+      stageFor(asapOrder, createdAt + stage.atMs),
+      stage.id,
+      `choosing ASAP does not change when ${stage.id} is reached`,
+    );
   }
 
   console.log(

@@ -21,7 +21,14 @@ import {
 } from "@/components/ui/Icons";
 import { useBasket } from "@/lib/basket/store";
 import { useCatalog, usePlan } from "@/lib/basket/use-catalog";
-import { useMounted, useOrders, type OrderShop } from "@/lib/orders/store";
+import { useMounted, useNow, useOrders, type OrderShop } from "@/lib/orders/store";
+import {
+  ASAP_SLOT_ID,
+  asapSlot,
+  buildSlots,
+  etaFor,
+  type Slot,
+} from "@/lib/orders/slots";
 import { useToast } from "@/components/ui/Toast";
 import { formatPKR, formatPKRShort, formatQuantityInput } from "@/lib/engine/format";
 import { ListSkeleton } from "@/components/ui/Skeletons";
@@ -59,50 +66,6 @@ const PAYMENTS = [
   { id: "card", label: "Card on delivery", hint: "Tap or insert with the rider", Icon: CardIcon },
 ];
 
-interface Slot {
-  id: string;
-  label: string;
-  hint: string;
-  /** When the window opens, so the ETA on the order screen matches the slot. */
-  startAt: number;
-}
-
-/**
- * Two-hour windows from the shopper's own clock: the next one that still fits
- * today, the one after that, then tomorrow morning. Nothing is invented — the
- * windows are the shopper's choice, and the order stores when the chosen one
- * opens so the tracking screen agrees with it.
- */
-function buildSlots(now: Date): Slot[] {
-  const slots: Slot[] = [];
-  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const firstHour = Math.min(22, Math.ceil((now.getHours() + 1) / 2) * 2);
-
-  const push = (dayOffset: number, hour: number, hint: string) => {
-    const start = new Date(dayStart.getTime() + dayOffset * 86_400_000 + hour * 3_600_000);
-    slots.push({
-      id: `${dayOffset}-${hour}`,
-      label: `${dayOffset === 0 ? "Today" : dayOffset === 1 ? "Tomorrow" : "In 2 days"} ${formatHour(
-        hour,
-      )}–${formatHour(hour + 2)}`,
-      hint,
-      startAt: start.getTime(),
-    });
-  };
-
-  push(0, firstHour, "Fastest available");
-  if (firstHour + 2 <= 22) push(0, firstHour + 2, "Same delivery fee");
-  push(1, 10, "Morning drop");
-  return slots.slice(0, 3);
-}
-
-function formatHour(hour: number): string {
-  const h = ((hour % 24) + 24) % 24;
-  const suffix = h < 12 ? "am" : "pm";
-  const display = h % 12 === 0 ? 12 : h % 12;
-  return `${display}${suffix}`;
-}
-
 export default function CheckoutPage() {
   const { rows, clear } = useBasket();
   const { loading } = useCatalog();
@@ -123,7 +86,15 @@ export default function CheckoutPage() {
   // build-time hours and disagree with the client.
   const mounted = useMounted();
   const slots = useMemo(() => (mounted ? buildSlots(new Date()) : []), [mounted]);
-  const activeSlot = slotId || slots[0]?.id || "";
+  // Only the ASAP row needs a live clock; the scheduled windows are fixed once
+  // the shopper sees them, so they are not rebuilt on every tick.
+  const now = useNow(10_000);
+  const choices = useMemo<Slot[]>(
+    () => (mounted ? [asapSlot(new Date(now)), ...slots] : []),
+    [mounted, now, slots],
+  );
+  const activeSlot =
+    choices.find((entry) => entry.id === slotId)?.id ?? choices[0]?.id ?? "";
   const address =
     addressId === "custom"
       ? { name: custom.name, phone: custom.phone, line1: custom.line1, area: custom.area }
@@ -183,8 +154,9 @@ export default function CheckoutPage() {
     const best = plan?.bestPlan;
     if (!best || !canPlace) return;
     setPlacing(true);
-    const slot = slots.find((entry) => entry.id === activeSlot) ?? slots[0];
-    const slotLabel = slot?.label ?? "Today";
+    const slot = choices.find((entry) => entry.id === activeSlot) ?? choices[0];
+    const slotLabel = slot?.label ?? "ASAP";
+    // ASAP starts when the order is actually placed; a window starts when it opens.
     const paymentLabel = PAYMENTS.find((entry) => entry.id === paymentId)?.label ?? PAYMENTS[0].label;
 
     // A short, honest pause: the confirmation has to feel like something happened.
@@ -197,7 +169,7 @@ export default function CheckoutPage() {
           area: address.area,
         },
         slot: slotLabel,
-        etaAt: (slot?.startAt ?? Date.now()) + 30 * 60 * 1000,
+        etaAt: etaFor(slot, Date.now()),
         payment: paymentLabel,
         shops,
         goods: best.subtotal,
@@ -336,7 +308,7 @@ export default function CheckoutPage() {
           {/* --------------------------------------------------- slot */}
           <Section title="When" Icon={ClockIcon}>
             <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
-              {slots.map((slot) => (
+              {choices.map((slot) => (
                 <button
                   key={slot.id}
                   onClick={() => setSlotId(slot.id)}
@@ -347,7 +319,17 @@ export default function CheckoutPage() {
                       : "border-cream-300 bg-white text-ink-soft hover:border-sage-300"
                   }`}
                 >
-                  <span className="block text-[0.86rem] font-semibold">{slot.label}</span>
+                  <span className="flex items-center gap-1.5 text-[0.86rem] font-semibold">
+                    {slot.id === ASAP_SLOT_ID && (
+                      <span
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                          activeSlot === slot.id ? "animate-ring bg-lime-400" : "bg-sage-400"
+                        }`}
+                        aria-hidden="true"
+                      />
+                    )}
+                    {slot.label}
+                  </span>
                   <span
                     className={`block text-[0.72rem] ${
                       activeSlot === slot.id ? "text-cream-200" : "text-sage-500"
