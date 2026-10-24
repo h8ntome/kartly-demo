@@ -107,7 +107,7 @@ export default function BasketPage() {
   );
 
   return (
-    <div className="has-dock mx-auto w-full max-w-[84rem] px-4 sm:px-6 lg:pb-4">
+    <div className="has-dock page max-w-[84rem] lg:pb-6">
       <header className="flex items-end justify-between gap-4 pt-6">
         <div>
           <h1 className="text-[1.9rem] leading-[1.05] tracking-[-0.02em] text-forest-950 sm:text-[2.3rem]">

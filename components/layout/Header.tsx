@@ -12,10 +12,13 @@ import { usePlan } from "@/lib/basket/use-catalog";
 import { BasketIcon, ReceiptIcon, SparkIcon } from "@/components/ui/Icons";
 
 const NAV = [
-  { href: "/search", label: "Search" },
-  { href: "/basket", label: "Basket" },
-  { href: "/stores", label: "Stores" },
-  { href: "/receipt", label: "Receipt scan" },
+  { href: "/search", label: "Search", short: "Search" },
+  { href: "/basket", label: "Basket", short: "Basket" },
+  { href: "/stores", label: "Stores", short: "Stores" },
+  // "Receipt scan" is the honest name but it is the first thing to break a
+  // tablet-width header, so the short form carries md and the full one returns
+  // once there is room for it.
+  { href: "/receipt", label: "Receipt scan", short: "Scan" },
 ];
 
 /**
@@ -119,12 +122,15 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-cream-200/80 bg-cream-50/88 backdrop-blur-xl supports-[backdrop-filter]:bg-cream-50/72">
-      <div className="mx-auto flex h-14 w-full max-w-[84rem] items-center gap-3 px-4 sm:px-6 md:h-16">
+      <div className="mx-auto flex h-14 w-full max-w-[84rem] items-center gap-3 px-4 sm:px-6 md:h-16 lg:px-8">
         <Link href="/" className="shrink-0" aria-label="Kartly home">
           <Logo />
         </Link>
 
-        <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main">
+        <nav
+          className="ml-2 hidden min-w-0 flex-nowrap items-center gap-1 md:flex lg:ml-4"
+          aria-label="Main"
+        >
           {NAV.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
@@ -132,11 +138,12 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`relative rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`relative whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-medium transition-colors lg:px-3 ${
                   active ? "text-forest-900" : "text-sage-600 hover:text-forest-800"
                 }`}
               >
-                {item.label}
+                <span className="hidden lg:inline">{item.label}</span>
+                <span className="lg:hidden">{item.short}</span>
                 {active && (
                   <motion.span
                     layoutId="nav-underline"
@@ -149,7 +156,7 @@ export function SiteHeader() {
           })}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2">
           <SavingsChip plan={plan} />
           <Link
             href="/orders"

@@ -50,7 +50,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     .slice(0, 6);
 
   return (
-    <div className="has-dock mx-auto w-full max-w-[52rem] px-4 sm:px-6">
+    <div className="has-dock page max-w-[68rem] lg:pt-2">
       <nav className="flex items-center gap-2 pt-5 text-[0.82rem] text-sage-500" aria-label="Breadcrumb">
         <Link
           href="/search"

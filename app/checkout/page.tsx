@@ -191,7 +191,7 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="has-dock mx-auto w-full max-w-[46rem] px-4 sm:px-6">
+    <div className="has-dock page max-w-[62rem] lg:pt-2">
       <header className="flex items-center gap-3 pt-6">
         <Link
           href="/basket"
@@ -235,7 +235,8 @@ export default function CheckoutPage() {
           <ListSkeleton rows={4} />
         </div>
       ) : (
-        <div className="mt-5 space-y-4">
+        <div className="mt-5 space-y-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,23rem)] lg:items-start lg:gap-6 lg:space-y-0">
+          <div className="space-y-4">
           <div className="flex items-start gap-2.5 rounded-2xl bg-cream-100 px-4 py-3 text-[0.78rem] leading-relaxed text-sage-600">
             <ShieldIcon className="mt-0.5 h-4 w-4 shrink-0 text-sage-500" />
             <p>
@@ -375,9 +376,21 @@ export default function CheckoutPage() {
             </div>
           </Section>
 
+          {/* -------------------------------------------------- notes */}
+          <Section title="Notes for the shopper" Icon={NoteIcon}>
+            <textarea
+              className="field min-h-[4.5rem] resize-y"
+              placeholder="e.g. leave with the building guard"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+            />
+          </Section>
+          </div>
+
           {/* -------------------------------------------------- order */}
-          <Section title="Your order" Icon={TruckIcon}>
-            <div className="space-y-3">
+
+          <div className="space-y-4 lg:sticky lg:top-24">
+          <Section title="Your order" Icon={TruckIcon}>            <div className="space-y-3">
               {shops.map((shop, index) => (
                 <div
                   key={shop.storeId}
@@ -436,18 +449,6 @@ export default function CheckoutPage() {
               ))}
             </div>
 
-            <label className="mt-3 block">
-              <span className="mb-1.5 flex items-center gap-1.5 text-[0.76rem] font-semibold uppercase tracking-[0.08em] text-sage-500">
-                <NoteIcon className="h-4 w-4" />
-                Notes for the shopper
-              </span>
-              <textarea
-                className="field min-h-[4.5rem] resize-y"
-                placeholder="e.g. leave with the building guard"
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-              />
-            </label>
           </Section>
 
           {/* ------------------------------------------------- totals */}
@@ -496,7 +497,30 @@ export default function CheckoutPage() {
             )}
           </Section>
 
-          <div className="dock">
+          {/* On a wide screen the summary column carries the call to action, so
+              nobody has to reach for the bottom of the viewport. */}
+          <Button
+            variant="accent"
+            size="lg"
+            disabled={!canPlace}
+            onClick={submit}
+            className="hidden w-full lg:flex"
+          >
+            {placing ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-forest-900/30 border-t-forest-900" />
+                Placing…
+              </>
+            ) : (
+              <>
+                Place demo order
+                <ChevronRightIcon className="h-4 w-4" />
+              </>
+            )}
+          </Button>
+          </div>
+
+          <div className="dock lg:hidden">
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-sage-500">

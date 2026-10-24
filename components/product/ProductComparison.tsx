@@ -103,7 +103,10 @@ export function ProductComparison({
   };
 
   return (
-    <div className="space-y-4">
+    // On a phone the buy card sits above the shop list; on a wide screen they
+    // sit side by side, because a six-row price list in a 800px column is a
+    // stretched phone, not a desktop layout.
+    <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start lg:gap-5 lg:space-y-0">
       {/* quantity + headline price, one card, thumb height */}
       <div className="rounded-3xl border border-cream-200 bg-white p-4 shadow-[var(--shadow-card)]">
         <div className="flex items-center justify-between gap-3">

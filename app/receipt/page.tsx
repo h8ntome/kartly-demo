@@ -16,8 +16,8 @@ const examples = EXAMPLE_RECEIPTS.map((receipt) => ({ store: receipt.store, text
 
 export default function ReceiptPage() {
   return (
-    <div className="has-dock mx-auto w-full max-w-[84rem] px-4 pt-8 sm:px-6 sm:pt-12 lg:pb-12">
-      <header className="max-w-3xl">
+    <div className="has-dock page max-w-[68rem] pt-8 sm:pt-12 lg:pb-12">
+      <header className="max-w-[62ch]">
         <p className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-lime-700">
           Receipt scan
         </p>
@@ -29,7 +29,7 @@ export default function ReceiptPage() {
           product, and then prices that exact list at every store it compares. Most receipts come
           back with a handful of lines to check, not a list to retype.
         </p>
-        <div className="mt-6 max-w-xl">
+        <div className="mt-6 max-w-[34rem]">
           <Suspense fallback={<Skeleton className="h-14 rounded-xl" />}>
             <SearchBox />
           </Suspense>

@@ -95,7 +95,7 @@ export default async function StoresPage() {
   const worstIndex = Math.max(...[...stats.values()].map((s) => s.priceIndex));
 
   return (
-    <div className="mx-auto w-full max-w-[84rem] px-4 pb-4 sm:px-6">
+    <div className="page max-w-[76rem] pb-8">
       <div className="pt-6">
         <p className="text-[0.76rem] font-semibold text-sage-500">
           {snapshot.products.length} products ·{" "}
@@ -184,11 +184,11 @@ export default async function StoresPage() {
         </h2>
         <p className="mt-2 max-w-2xl text-[0.92rem] leading-relaxed text-sage-600">
           The delivery charge, and the subtotal that makes it free. Where a shop has not published a
-          charge, Kartly leaves it unknown instead of guessing.
+          charge, Kartly says so instead of guessing.
         </p>
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         {ranked.map((store, index) => {
           const stat = stats.get(store.id)!;
           return (

@@ -64,7 +64,7 @@ export function LineEditor({ rows, products, plan, onChange, onRemove }: Props) 
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className="py-3.5"
           >
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span
                 className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-cream-100 text-xl ring-1 ring-inset ring-cream-200"
                 aria-hidden="true"
@@ -97,7 +97,9 @@ export function LineEditor({ rows, products, plan, onChange, onRemove }: Props) 
               </div>
             </div>
 
-            <div className="mt-2.5 flex items-center justify-between gap-3 pl-[3.75rem]">
+            {/* On a phone the controls wrap onto their own indented row; on a
+                wide screen they join the line, so the row is not mostly air. */}
+            <div className="order-last mt-2.5 flex w-full items-center justify-between gap-3 pl-[3.75rem] lg:order-none lg:mt-0 lg:w-auto lg:shrink-0 lg:justify-normal lg:pl-0">
               <Stepper
                 size="sm"
                 value={row.quantity}

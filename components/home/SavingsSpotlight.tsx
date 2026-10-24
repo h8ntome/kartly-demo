@@ -59,8 +59,8 @@ export function SavingsSpotlight({
       className="overflow-hidden rounded-[1.75rem] bg-forest-900 text-cream-50 shadow-[var(--shadow-lift)]"
       aria-label="What Kartly saves on this basket"
     >
-      <div className="flex items-start gap-4 px-5 pb-4 pt-5">
-        <div className="min-w-0 flex-1">
+      <div className="grid gap-5 px-5 pb-4 pt-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-8 md:px-7 lg:gap-10">
+        <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-lime-400">
             <SparkIcon className="h-3.5 w-3.5" />
             {usingExample ? "Example basket · Kartly found" : "Your basket · Kartly found"}
@@ -69,23 +69,43 @@ export function SavingsSpotlight({
             <AnimatedNumber
               value={saved}
               format="pkr"
-              className="font-display text-[2.5rem] font-semibold leading-none tracking-[-0.03em] text-lime-400"
+              className="font-display text-[2.5rem] font-semibold leading-none tracking-[-0.03em] text-lime-400 lg:text-[3rem]"
             />
             <span className="text-[0.82rem] text-cream-200">
               {certain ? "cheaper" : "est. cheaper"}
             </span>
           </p>
-          <p className="mt-1.5 text-[0.82rem] leading-snug text-cream-200">
+          <p className="mt-1.5 max-w-[46ch] text-[0.82rem] leading-snug text-cream-200">
             than buying the same {plan.items.length} lines at{" "}
             {plan.worstSingle?.store.name ?? "the dearest shop"} — {plan.bestPlan.storeCount}{" "}
             {plan.bestPlan.storeCount === 1 ? "order" : "orders"}, delivery counted wherever the
             shop publishes a charge.
           </p>
         </div>
-        <SavingsRing saved={saved} baseline={plan.worstSingle?.total ?? 0} certain={certain} tone="dark" />
+        <div className="flex items-center gap-6">
+          {/* On a wide screen the two figures sit beside the ring instead of
+              in a band under it, so the card reads as one statement. */}
+          <div className="hidden min-w-0 md:block">
+            <Stat
+              label="Cheapest total"
+              value={formatPKR(plan.savings.bestTotal)}
+              className="text-[1.3rem]"
+            />
+            <div className="mt-3 border-t border-forest-700/60 pt-3">
+              <Stat
+                label={`From ${plan.bestPlan.storeCount} ${
+                  plan.bestPlan.storeCount === 1 ? "shop" : "shops"
+                }`}
+                value={shops}
+                className="text-[0.95rem]"
+              />
+            </div>
+          </div>
+          <SavingsRing saved={saved} baseline={plan.worstSingle?.total ?? 0} certain={certain} tone="dark" />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-px bg-forest-700/60">
+      <div className="grid grid-cols-2 gap-px bg-forest-700/60 md:hidden">
         <div className="bg-forest-900 px-5 py-3">
           <p className="text-[0.68rem] uppercase tracking-[0.1em] text-cream-200/70">
             Cheapest total
@@ -102,8 +122,8 @@ export function SavingsSpotlight({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 px-5 py-4">
-        <Button variant="accent" className="flex-1" onClick={openBasket}>
+      <div className="flex flex-wrap items-center gap-2 px-5 py-4 md:px-7">
+        <Button variant="accent" className="flex-1 md:flex-none md:px-6" onClick={openBasket}>
           {usingExample ? `Try this ${plan.items.length}-line basket` : "Open my basket"}
           <span className="tabular ml-1 opacity-80">{formatPKRShort(plan.savings.bestTotal)}</span>
         </Button>
@@ -117,11 +137,29 @@ export function SavingsSpotlight({
       </div>
 
       {usingExample && (
-        <p className="border-t border-forest-700/60 px-5 py-2.5 text-[0.72rem] text-cream-200/80">
+        <p className="border-t border-forest-700/60 px-5 py-2.5 text-[0.72rem] text-cream-200/80 md:px-7">
           Same {plan.items.length} lines, priced at all {plan.quotes.length} shops — swap any product
           and the number follows.
         </p>
       )}
     </motion.section>
+  );
+}
+
+/** One figure in the spotlight's stat band. */
+function Stat({
+  label,
+  value,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[0.68rem] uppercase tracking-[0.1em] text-cream-200/70">{label}</p>
+      <p className={`tabular mt-0.5 truncate font-display font-semibold ${className}`}>{value}</p>
+    </div>
   );
 }

@@ -37,7 +37,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[46rem] px-4 pb-4 sm:px-6">
+    <div className="page max-w-[76rem] pb-8">
       <header className="flex items-end justify-between gap-4 pt-6">
         <div>
           <h1 className="text-[1.9rem] leading-[1.05] tracking-[-0.02em] text-forest-950 sm:text-[2.3rem]">
@@ -74,16 +74,16 @@ export default function OrdersPage() {
           />
         </div>
       ) : (
-        <ul className="mt-5 space-y-3">
+        <ul className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2 xl:grid-cols-3">
           {recent.map((order) => {
             const stage = stageFor(order, now);
             const index = stageIndex(stage);
             const done = stage === "delivered";
             return (
-              <li key={order.id}>
+              <li key={order.id} className="h-full">
                 <Link
                   href={`/order/${order.id}`}
-                  className="flex items-center gap-3 rounded-3xl border border-cream-200 bg-white p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]"
+                  className="flex h-full items-center gap-3 rounded-3xl border border-cream-200 bg-white p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]"
                 >
                   <span
                     className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${

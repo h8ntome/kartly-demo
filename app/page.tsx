@@ -6,6 +6,7 @@ import { compareBasket, toBasketItems } from "@/lib/engine/plan";
 import { EXAMPLE_BASKET } from "@/lib/catalog/dataset";
 import { STORES } from "@/lib/catalog/stores";
 import { SearchBox, ProductTile } from "@/components/search/SearchUi";
+import { Rail } from "@/components/ui/Rail";
 import { SavingsSpotlight } from "@/components/home/SavingsSpotlight";
 import { Reveal } from "@/components/motion/Motion";
 import { LinkButton } from "@/components/ui/Primitives";
@@ -55,10 +56,10 @@ export default async function HomePage() {
     .slice(0, 6);
 
   return (
-    <div className="mx-auto w-full max-w-[84rem] px-4 pb-6 sm:px-6">
+    <div className="page max-w-[76rem] pb-8">
       {/* ------------------------------------------------------- hero */}
-      <section className="pt-6 sm:pt-10">
-        <div className="flex items-center gap-2 text-[0.76rem] font-semibold text-sage-500">
+      <section className="pt-6 sm:pt-10 lg:pt-14">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.76rem] font-semibold text-sage-500">
           <span className="inline-flex h-5 items-center rounded-full bg-cream-200 px-2 text-forest-800">
             Karachi
           </span>
@@ -66,21 +67,29 @@ export default async function HomePage() {
             {snapshot.stores.length} supermarkets · {snapshot.products.length} products priced
           </span>
         </div>
-        <h1 className="mt-3 max-w-[16ch] text-[2.35rem] leading-[1.02] tracking-[-0.03em] text-forest-950 sm:max-w-none sm:text-[3.4rem]">
-          Your shopping list, at the <span className="text-forest-600">lowest</span> possible cost.
-        </h1>
-        <p className="mt-3 max-w-xl text-[0.98rem] leading-relaxed text-sage-600 sm:text-[1.05rem]">
-          Kartly prices your whole basket at every supermarket it has prices for — pack sizes,
-          availability and delivery included — then tells you the cheapest practical way to buy it.
-        </p>
+        {/* Two columns from lg: the claim on the left, the way in on the right.
+            Below that it stacks, exactly as it always did. */}
+        <div className="mt-3 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-end lg:gap-10">
+          <div className="min-w-0">
+            <h1 className="max-w-[17ch] text-[2.35rem] leading-[1.02] tracking-[-0.03em] text-forest-950 sm:text-[3rem] lg:text-[3.35rem]">
+              Your shopping list, at the <span className="text-forest-600">lowest</span> possible
+              cost.
+            </h1>
+            <p className="mt-3 max-w-[46ch] text-[0.98rem] leading-relaxed text-sage-600 sm:text-[1.05rem]">
+              Kartly prices your whole basket at every supermarket it has prices for — pack sizes,
+              availability and delivery included — then tells you the cheapest practical way to buy
+              it.
+            </p>
+          </div>
 
-        <div className="mt-5 max-w-xl">
-          <Suspense fallback={<SearchBoxSkeleton />}>
-            <SearchBox size="lg" />
-          </Suspense>
+          <div className="min-w-0 lg:pb-1">
+            <Suspense fallback={<SearchBoxSkeleton />}>
+              <SearchBox size="lg" />
+            </Suspense>
+          </div>
         </div>
 
-        <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
           {categories.map((category) => (
             <Link
               key={category}
@@ -107,6 +116,7 @@ export default async function HomePage() {
 
       {/* ----------------------------------------------- product rail */}
       <Rail
+        className="section-gap"
         title="Add to your basket"
         hint="Tap to add — the price shown is the cheapest shop that has it"
         href="/search"
@@ -120,6 +130,8 @@ export default async function HomePage() {
       {/* ------------------------------------------------- price gaps */}
       {widest.length > 0 && (
         <Rail
+          className="section-gap"
+          tight
           title="Same product, different shop"
           hint="The gap you pay for shopping at the wrong place"
           href="/search?sort=savings-desc"
@@ -132,15 +144,29 @@ export default async function HomePage() {
       )}
 
       {/* ----------------------------------------------------- shops */}
-      <Rail
-        title="The shops"
-        hint="Delivery rules are what decide the cheapest basket"
-        href="/stores"
-        linkLabel="Compare shops"
-      >
-        {STORES.map((store) => (
+      {/* Six of anything is a grid, not a rail — nothing is hidden off-screen. */}
+      <section className="section-gap">
+        <div className="mb-3.5 flex items-end justify-between gap-3 px-0.5">
+          <div className="min-w-0">
+            <h2 className="font-display text-[1.35rem] font-semibold leading-tight text-forest-950 sm:text-[1.6rem]">
+              The shops
+            </h2>
+            <p className="mt-1 text-[0.8rem] text-sage-500">
+              Delivery rules are what decide the cheapest basket
+            </p>
+          </div>
           <Link
-            key={store.id}
+            href="/stores"
+            className="inline-flex shrink-0 items-center gap-1 text-[0.82rem] font-semibold text-forest-700 hover:text-forest-900"
+          >
+            Compare shops
+            <ChevronRightIcon className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {STORES.map((store) => (
+            <li key={store.id} className="h-full">
+          <Link
             href={`/stores#${store.id}`}
             className="flex h-full flex-col rounded-3xl border border-cream-200 bg-white p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]"
           >
@@ -156,11 +182,13 @@ export default async function HomePage() {
               <ChevronRightIcon className="h-3.5 w-3.5" />
             </span>
           </Link>
-        ))}
-      </Rail>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {/* ---------------------------------------------- how it works */}
-      <section className="mt-12">
+      <section className="section-gap">
         <h2 className="font-display text-[1.45rem] font-semibold text-forest-950 sm:text-[1.75rem]">
           Three steps, about a minute
         </h2>
@@ -185,7 +213,7 @@ export default async function HomePage() {
       </section>
 
       {/* --------------------------------------------- receipt promo */}
-      <Reveal className="mt-8">
+      <Reveal className="mt-10 lg:mt-12">
         <div className="flex flex-col gap-4 overflow-hidden rounded-[1.75rem] border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)] sm:flex-row sm:items-center">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-cream-100 text-forest-800">
             <ScanIcon className="h-6 w-6" />
@@ -212,47 +240,6 @@ export default async function HomePage() {
         </div>
       </Reveal>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ *
- * Building blocks
- * ------------------------------------------------------------------ */
-
-function Rail({
-  title,
-  hint,
-  href,
-  linkLabel,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  href?: string;
-  linkLabel?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mt-11">
-      <div className="mb-3.5 flex items-end justify-between gap-3 px-0.5">
-        <div className="min-w-0">
-          <h2 className="font-display text-[1.35rem] font-semibold leading-tight text-forest-950 sm:text-[1.6rem]">
-            {title}
-          </h2>
-          {hint && <p className="mt-1 text-[0.8rem] text-sage-500">{hint}</p>}
-        </div>
-        {href && linkLabel && (
-          <Link
-            href={href}
-            className="inline-flex shrink-0 items-center gap-1 text-[0.82rem] font-semibold text-forest-700 hover:text-forest-900"
-          >
-            {linkLabel}
-            <ChevronRightIcon className="h-3.5 w-3.5" />
-          </Link>
-        )}
-      </div>
-      <div className="rail">{children}</div>
-    </section>
   );
 }
 

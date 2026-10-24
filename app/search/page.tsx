@@ -50,12 +50,15 @@ export default async function SearchPage({
   );
 
   return (
-    <div className="mx-auto w-full max-w-[84rem] px-4 pb-4 sm:px-6">
+    <div className="page max-w-[76rem] pb-6">
       {/* Sticky search: the one control a shopper returns to on every search. */}
       <div className="sticky top-14 z-30 -mx-4 border-b border-cream-200/70 bg-cream-50/92 px-4 pb-3 pt-3 backdrop-blur-xl supports-[backdrop-filter]:bg-cream-50/78 sm:-mx-6 sm:px-6 md:top-16">
-        <Suspense fallback={<div className="h-12" />}>
-          <SearchBox autoFocus={!query} />
-        </Suspense>
+        {/* A search field the width of a laptop is a design gap, not a feature. */}
+        <div className="lg:max-w-[34rem]">
+          <Suspense fallback={<div className="h-12" />}>
+            <SearchBox autoFocus={!query} />
+          </Suspense>
+        </div>
         <div className="mt-3">
           <Suspense fallback={<div className="h-20" />}>
             <FilterBar
@@ -102,7 +105,7 @@ export default async function SearchPage({
             }
           />
         ) : (
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[repeat(2,minmax(0,1fr))]">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-[repeat(2,minmax(0,1fr))] xl:grid-cols-[repeat(3,minmax(0,1fr))]">
             {result.items.map((summary) => (
               <ProductRow key={summary.product.id} summary={summary} />
             ))}

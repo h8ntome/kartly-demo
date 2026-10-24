@@ -479,7 +479,7 @@ export function ProductRow({ summary }: { summary: CatalogSummary }) {
 /** Skeleton grid shown while the catalogue loads. */
 export function ProductGridSkeleton({ count = 6 }: { count?: number }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: count }).map((_, index) => (
         <div key={index} className="shimmer h-60 rounded-3xl" />
       ))}

@@ -101,7 +101,7 @@ export default function OrderPage() {
   };
 
   return (
-    <div className="has-dock mx-auto w-full max-w-[46rem] px-4 sm:px-6">
+    <div className="has-dock page max-w-[76rem] lg:pt-2">
       <header className="flex items-center gap-3 pt-6">
         <Link
           href="/"
@@ -172,60 +172,9 @@ export default function OrderPage() {
         </div>
       </section>
 
-      {/* --------------------------------------------------- timeline */}
-      <section className="mt-4 rounded-3xl border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)]">
-        <ol className="relative space-y-5">
-          <span
-            className="absolute left-[1.05rem] top-2 bottom-2 w-0.5 rounded-full bg-cream-200"
-            aria-hidden="true"
-          />
-          <span
-            className="absolute left-[1.05rem] top-2 w-0.5 rounded-full bg-forest-500 transition-[height] duration-700 ease-[var(--ease-out-expo)]"
-            aria-hidden="true"
-            style={{ height: `${(index / (ORDER_STAGES.length - 1)) * 92}%` }}
-          />
-          {ORDER_STAGES.map((entry, position) => {
-            const Icon = STAGE_ICONS[entry.id];
-            const reached = position <= index;
-            const current = position === index && !done;
-            return (
-              <li key={entry.id} className="relative flex gap-3.5">
-                <span
-                  className={`relative z-10 grid h-[2.1rem] w-[2.1rem] shrink-0 place-items-center rounded-full border-2 transition-colors ${
-                    reached
-                      ? "border-forest-500 bg-forest-500 text-cream-50"
-                      : "border-cream-300 bg-white text-sage-300"
-                  } ${current ? "animate-ring" : ""}`}
-                >
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div className="min-w-0 flex-1 pb-0.5">
-                  <p
-                    className={`text-[0.92rem] font-semibold ${
-                      reached ? "text-ink" : "text-sage-400"
-                    }`}
-                  >
-                    {entry.label}
-                  </p>
-                  <p className="text-[0.78rem] leading-snug text-sage-500">
-                    {reached ? entry.hint : "Waiting on the step before it"}
-                  </p>
-                </div>
-                <span className="tabular shrink-0 text-[0.76rem] text-sage-400">
-                  {reached ? clockLabel(order.createdAt + entry.atMs) : "—"}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-        <p className="mt-4 rounded-xl bg-cream-100 px-3 py-2 text-[0.74rem] leading-relaxed text-sage-500">
-          Statuses are simulated for this demo and advance on a compressed clock. No order has been
-          sent to {order.shops.map((shop) => shop.storeName).join(" or ")}.
-        </p>
-      </section>
-
-      {/* ----------------------------------------------------- shops */}
-      <section className="mt-4 space-y-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:items-start lg:gap-6">
+      <div className="space-y-4 lg:space-y-0">
+      <section className="mt-4 space-y-3 lg:mt-0">
         {order.shops.map((shop, shopIndex) => (
           <div
             key={shop.storeId}
@@ -276,6 +225,61 @@ export default function OrderPage() {
             )}
           </div>
         ))}
+      </section>
+
+      </div>
+
+      <div className="space-y-4 lg:space-y-0 lg:sticky lg:top-24">
+      {/* --------------------------------------------------- timeline */}
+      <section className="mt-4 rounded-3xl border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)] lg:mt-0">
+        <ol className="relative space-y-5">
+          <span
+            className="absolute left-[1.05rem] top-2 bottom-2 w-0.5 rounded-full bg-cream-200"
+            aria-hidden="true"
+          />
+          <span
+            className="absolute left-[1.05rem] top-2 w-0.5 rounded-full bg-forest-500 transition-[height] duration-700 ease-[var(--ease-out-expo)]"
+            aria-hidden="true"
+            style={{ height: `${(index / (ORDER_STAGES.length - 1)) * 92}%` }}
+          />
+          {ORDER_STAGES.map((entry, position) => {
+            const Icon = STAGE_ICONS[entry.id];
+            const reached = position <= index;
+            const current = position === index && !done;
+            return (
+              <li key={entry.id} className="relative flex gap-3.5">
+                <span
+                  className={`relative z-10 grid h-[2.1rem] w-[2.1rem] shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                    reached
+                      ? "border-forest-500 bg-forest-500 text-cream-50"
+                      : "border-cream-300 bg-white text-sage-300"
+                  } ${current ? "animate-ring" : ""}`}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1 pb-0.5">
+                  <p
+                    className={`text-[0.92rem] font-semibold ${
+                      reached ? "text-ink" : "text-sage-400"
+                    }`}
+                  >
+                    {entry.label}
+                  </p>
+                  <p className="text-[0.78rem] leading-snug text-sage-500">
+                    {reached ? entry.hint : "Waiting on the step before it"}
+                  </p>
+                </div>
+                <span className="tabular shrink-0 text-[0.76rem] text-sage-400">
+                  {reached ? clockLabel(order.createdAt + entry.atMs) : "—"}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="mt-4 rounded-xl bg-cream-100 px-3 py-2 text-[0.74rem] leading-relaxed text-sage-500">
+          Statuses are simulated for this demo and advance on a compressed clock. No order has been
+          sent to {order.shops.map((shop) => shop.storeName).join(" or ")}.
+        </p>
       </section>
 
       {/* --------------------------------------------------- summary */}
@@ -331,7 +335,21 @@ export default function OrderPage() {
       </section>
 
       {/* --------------------------------------------------- actions */}
-      <div className="dock">
+      {/* On a wide screen the actions sit under the summary instead of floating
+          over the bottom of the window. */}
+      <div className="mt-4 hidden gap-2 lg:flex">
+        <Button variant="outline" className="flex-1" onClick={reorder}>
+          <BasketIcon className="h-4 w-4" />
+          Buy again
+        </Button>
+        <Button className="flex-1" onClick={() => router.push("/")}>
+          Done
+        </Button>
+      </div>
+      </div>
+      </div>
+
+      <div className="dock lg:hidden">
         <div className="flex items-center gap-2">
           <Button variant="outline" className="flex-1" onClick={reorder}>
             <BasketIcon className="h-4 w-4" />

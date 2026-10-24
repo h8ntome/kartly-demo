@@ -221,7 +221,7 @@ export function ReceiptScanner({ examples }: { examples: Example[] }) {
   /* --------------------------------------------------------- render */
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
       <div className="space-y-4">
         {/* input mode */}
         <div className="rounded-4xl border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6">
