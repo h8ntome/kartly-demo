@@ -44,8 +44,8 @@ export function PriceMatrix({
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-cream-200 bg-white shadow-[var(--shadow-card)]">
-      <table className="w-full min-w-[54rem] border-collapse text-[0.82rem]">
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[46rem] border-collapse text-[0.8rem]">
         <caption className="sr-only">
           Basket line by supermarket price comparison, including delivery in the totals row
         </caption>
@@ -167,7 +167,7 @@ export function PriceMatrix({
                         ? "below min order"
                         : quote.deliveryKnown
                           ? `incl. ${quote.freeDelivery ? "free" : formatPKRShort(quote.delivery)} del.`
-                          : "delivery fee not counted"}
+                          : "delivery not counted"}
                   </span>
                 </td>
               );

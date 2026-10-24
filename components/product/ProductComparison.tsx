@@ -2,20 +2,25 @@
 
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Button, Price, Tag } from "@/components/ui/Primitives";
+import { Price, Tag } from "@/components/ui/Primitives";
 import { StoreBadge } from "@/components/brand/Logo";
+import { Stepper } from "@/components/ui/Stepper";
+import { useToast } from "@/components/ui/Toast";
+import { Button } from "@/components/ui/Primitives";
+import { BasketIcon, CheckIcon } from "@/components/ui/Icons";
 import { formatPKR, formatQuantityInput } from "@/lib/engine/format";
 import { cheapestPack, familyOf } from "@/lib/engine/pricing";
 import { useBasket } from "@/lib/basket/store";
+import { useRouter } from "next/navigation";
 import type { Offer, ProductDetail, Store, Unit } from "@/lib/types";
 
 /**
- * One product, six shops.
+ * One product, every shop.
  *
  * The honest unit here is price per base unit, not shelf price: a 5 kg bag is
- * not "more expensive" than a 1 kg bag, it is a different quantity. The table
- * therefore sorts on unit price and shows the pack it came from, and the
- * quantity selector re-prices every store for the amount actually wanted.
+ * not "more expensive" than a 1 kg bag, it is a different quantity. The list
+ * therefore sorts on what you would actually pay for the amount you asked for,
+ * and calls out the surplus when a shop only sells a bigger pack.
  */
 
 interface Row {
@@ -72,6 +77,8 @@ export function ProductComparison({
   stores: Store[];
 }) {
   const { add, quantityOf } = useBasket();
+  const { toast } = useToast();
+  const router = useRouter();
   const [quantity, setQuantity] = useState(product.defaultQuantity);
   const rows = buildRows(product, stores, quantity);
   const priced = rows.filter((row) => row.best);
@@ -79,121 +86,146 @@ export function ProductComparison({
   const dearest = priced.length ? Math.max(...priced.map((row) => row.best!.cost)) : 0;
   const spread = dearest - cheapest;
   const inBasket = quantityOf(product.id) > 0;
+  const bestStore = priced.length
+    ? priced.reduce((best, row) => (row.best!.cost < best.best!.cost ? row : best)).store
+    : null;
 
   const steps = stepsFor(product);
 
+  const addToBasket = () => {
+    add(product.id, quantity);
+    toast({
+      title: `${product.glyph} ${product.name} added`,
+      detail: `${formatQuantityInput(quantity)} ${product.unit} · ${formatPKR(cheapest)} at ${bestStore?.name ?? "the cheapest shop"}`,
+      tone: "save",
+      action: { label: "Basket", onClick: () => router.push("/basket") },
+    });
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)]">
-        <div>
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-sage-400">
-            I want
-          </p>
-          <div className="mt-1.5 flex items-center gap-1 rounded-xl border border-cream-300 bg-white p-1">
-            <button
-              onClick={() => setQuantity((value) => Math.max(steps[0], +(value - steps[1]).toFixed(3)))}
-              className="grid h-8 w-8 place-items-center rounded-lg text-lg text-forest-800 hover:bg-cream-100"
-              aria-label="Decrease quantity"
-            >
-              −
-            </button>
-            <span className="tabular min-w-[5.5rem] text-center font-semibold">
-              {formatQuantityInput(quantity)} {product.unit}
-            </span>
-            <button
-              onClick={() => setQuantity((value) => +(value + steps[1]).toFixed(3))}
-              className="grid h-8 w-8 place-items-center rounded-lg text-lg text-forest-800 hover:bg-cream-100"
-              aria-label="Increase quantity"
-            >
-              +
-            </button>
+    <div className="space-y-4">
+      {/* quantity + headline price, one card, thumb height */}
+      <div className="rounded-3xl border border-cream-200 bg-white p-4 shadow-[var(--shadow-card)]">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-sage-400">
+              I want
+            </p>
+            <div className="mt-1.5">
+              <Stepper
+                value={quantity}
+                step={steps[1]}
+                min={steps[0]}
+                unit={product.unit}
+                label={product.name}
+                onChange={setQuantity}
+              />
+            </div>
           </div>
-        </div>
-
-        <div className="hidden h-12 w-px bg-cream-200 sm:block" />
-
-        <div className="min-w-[10rem]">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-sage-400">
-            Cheapest for that
-          </p>
-          <Price amount={cheapest} size="lg" tone="save" className="mt-1" />
+          <div className="text-right">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-sage-400">
+              Cheapest for that
+            </p>
+            <Price amount={cheapest} size="lg" tone="save" className="mt-1" />
+            {bestStore && (
+              <p className="mt-1 flex items-center justify-end gap-1.5 text-[0.76rem] text-sage-500">
+                <StoreBadge storeId={bestStore.id} size="sm" />
+                {bestStore.name}
+              </p>
+            )}
+          </div>
         </div>
 
         {spread > 0 && (
-          <div className="rounded-xl bg-save-soft px-3 py-2">
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-save/70">
-              Cheapest vs dearest
-            </p>
-            <p className="tabular font-display text-lg font-semibold text-save">
-              {formatPKR(spread)}
-            </p>
+          <div className="mt-4 border-t border-cream-200 pt-3.5">
+            <div className="flex items-center justify-between text-[0.76rem]">
+              <span className="text-sage-500">Cheapest</span>
+              <span className="tabular font-semibold text-save">{formatPKR(cheapest)}</span>
+            </div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-cream-200">
+              <motion.div
+                className="h-full rounded-full bg-forest-500"
+                initial={{ width: 0 }}
+                animate={{ width: `${(cheapest / dearest) * 100}%` }}
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[0.76rem]">
+              <span className="text-sage-500">Dearest</span>
+              <span className="tabular font-semibold text-ink">
+                {formatPKR(dearest)}
+                <span className="ml-1.5 rounded-md bg-spend-soft px-1.5 py-0.5 text-[0.68rem] font-bold text-spend">
+                  +{formatPKR(spread)}
+                </span>
+              </span>
+            </div>
           </div>
         )}
-
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Button variant={inBasket ? "accent" : "primary"} onClick={() => add(product.id, quantity)}>
-            {inBasket ? `Add ${formatQuantityInput(quantity)} ${product.unit} more` : "Add to basket"}
-          </Button>
-        </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-cream-200 bg-white shadow-[var(--shadow-card)]">
-        <ul className="divide-y divide-cream-200">
+      {/* the shop list */}
+      <div className="overflow-hidden rounded-3xl border border-cream-200 bg-white shadow-[var(--shadow-card)]">
+        <h2 className="border-b border-cream-200 px-4 py-3 text-[0.74rem] font-semibold uppercase tracking-[0.1em] text-sage-500">
+          Every shop · {priced.length} can supply it
+        </h2>
+        <ul className="divide-y divide-cream-100">
           {rows.map((row, index) => {
             const isCheapest = !!row.best && row.best.cost === cheapest && spread > 0;
             return (
               <motion.li
                 key={row.store.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.02 }}
-                className={`flex flex-wrap items-center gap-4 px-5 py-4 sm:flex-nowrap ${
+                className={`flex items-center gap-3 px-4 py-3.5 ${
                   isCheapest ? "bg-save-soft/60" : ""
                 }`}
               >
                 <StoreBadge storeId={row.store.id} size="lg" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-ink">{row.store.name}</p>
+                  <p className="flex items-center gap-2 font-semibold text-ink">
+                    <span className="truncate">{row.store.name}</span>
+                    {isCheapest && <Tag tone="save">Lowest</Tag>}
+                    {row.best && row.best.offer.stock === "low" && <Tag tone="warn">Low stock</Tag>}
+                  </p>
                   {row.best ? (
-                    <p className="mt-0.5 truncate text-[0.78rem] text-sage-500">
+                    <p className="mt-0.5 truncate text-[0.76rem] text-sage-500">
                       {row.best.packs > 1 ? `${row.best.packs} × ` : ""}
                       {row.best.offer.packLabel} · {row.best.offer.brand}
                       {row.best.offer.promo && (
-                        <span className="ml-1 font-semibold text-save">{row.best.offer.promo.label}</span>
+                        <span className="ml-1 font-semibold text-save">
+                          {row.best.offer.promo.label}
+                        </span>
                       )}
                       {row.best.packs * row.best.offer.quantity > quantity + 1e-9 && (
                         <span className="ml-1 text-warn">
-                          · {formatQuantityInput(+(row.best.packs * row.best.offer.quantity - quantity).toFixed(2))}{" "}
+                          · {formatQuantityInput(
+                            +(row.best.packs * row.best.offer.quantity - quantity).toFixed(2),
+                          )}{" "}
                           {product.unit} extra
                         </span>
                       )}
                     </p>
                   ) : (
-                    <p className="mt-0.5 text-[0.78rem] text-warn">{row.reason}</p>
+                    <p className="mt-0.5 text-[0.76rem] text-warn">{row.reason}</p>
                   )}
                 </div>
-
-                <div className="flex items-center gap-3 sm:gap-6">
-                  {row.best && (
-                    <span className="hidden text-right text-[0.74rem] leading-tight text-sage-500 sm:block">
-                      {formatPKR(row.best.unitPrice)}
-                      <span className="block text-[0.68rem]">per {unitLabel(product.unit)}</span>
-                    </span>
-                  )}
-                  <div className="w-[7.5rem] text-right">
-                    {row.best ? (
+                <div className="shrink-0 text-right">
+                  {row.best ? (
+                    <>
                       <Price
                         amount={row.best.cost}
                         list={row.best.offer.listPrice}
                         size="md"
                         tone={isCheapest ? "save" : "default"}
                       />
-                    ) : (
-                      <span className="text-[0.8rem] text-sage-300">—</span>
-                    )}
-                  </div>
-                  {isCheapest && <Tag tone="save">Lowest</Tag>}
-                  {row.best && row.best.offer.stock === "low" && <Tag tone="warn">Low stock</Tag>}
+                      <p className="text-[0.7rem] text-sage-400">
+                        {formatPKR(row.best.unitPrice)} per {unitLabel(product.unit)}
+                      </p>
+                    </>
+                  ) : (
+                    <span className="text-[0.8rem] text-sage-300">—</span>
+                  )}
                 </div>
               </motion.li>
             );
@@ -201,11 +233,34 @@ export function ProductComparison({
         </ul>
       </div>
 
-      <p className="max-w-3xl text-[0.82rem] leading-relaxed text-sage-600">
-        Prices are per pack, converted to {unitLabel(product.unit)} for the ranking. Where a shop only
-        sells a larger pack than you asked for, the price shown is what that shop would actually
-        charge you — the surplus is called out rather than hidden.
+      <p className="px-1 text-[0.78rem] leading-relaxed text-sage-500">
+        Prices are per pack, ranked on what you would pay for {formatQuantityInput(quantity)}{" "}
+        {product.unit}. Where a shop only sells a bigger pack, the price shown is what that shop
+        would actually charge you.
       </p>
+
+      {/* sticky add bar */}
+      <div className="dock">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-sage-500">
+              {formatQuantityInput(quantity)} {product.unit} · cheapest
+            </p>
+            <p className="tabular font-display text-[1.45rem] font-semibold leading-tight text-forest-950">
+              {formatPKR(cheapest)}
+            </p>
+          </div>
+          <Button
+            variant={inBasket ? "accent" : "primary"}
+            size="lg"
+            onClick={addToBasket}
+            className="min-w-[10.5rem]"
+          >
+            {inBasket ? <CheckIcon className="h-4 w-4" /> : <BasketIcon className="h-4 w-4" />}
+            {inBasket ? "Add more" : "Add to basket"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -74,19 +74,19 @@ export function deliveryRuleLabel(store: Store): string {
   const freeOver = store.freeDeliveryOver;
   const fee = store.deliveryFee;
   if (freeOver !== null && fee === null) {
-    return `Free delivery above ${formatPKR(freeOver)}; the charge below that is unknown`;
+    return `Free delivery above ${formatPKR(freeOver)}; below that the fee is not published`;
   }
   if (freeOver !== null && fee !== null) {
     return `Free delivery above ${formatPKR(freeOver)}, otherwise ${formatPKR(fee)}`;
   }
   if (fee !== null) return `${formatPKR(fee)} delivery`;
-  return "Delivery fee unknown";
+  return "Delivery not published";
 }
 
 /** What delivery costs on one specific order. */
 export function deliveryLineLabel(delivery: { status: DeliveryStatus; fee?: number }): string {
   if (delivery.status === "free") return "free delivery";
-  if (delivery.status === "unknown") return "delivery fee unknown";
+  if (delivery.status === "unknown") return "delivery not published";
   if (delivery.status === "charged") return `${formatPKR(delivery.fee ?? 0)} delivery`;
   return "no order";
 }
@@ -94,7 +94,7 @@ export function deliveryLineLabel(delivery: { status: DeliveryStatus; fee?: numb
 /** Short form for table columns and chips. */
 export function deliveryShortLabel(delivery: { status: DeliveryStatus; fee?: number }): string {
   if (delivery.status === "free") return "free delivery";
-  if (delivery.status === "unknown") return "delivery unknown";
+  if (delivery.status === "unknown") return "no published fee";
   if (delivery.status === "charged") return `+${formatPKRShort(delivery.fee ?? 0)} delivery`;
   return "—";
 }

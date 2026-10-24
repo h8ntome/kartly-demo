@@ -9,7 +9,7 @@ import { useBasket } from "@/lib/basket/store";
 import { useCatalog, usePlan } from "@/lib/basket/use-catalog";
 import { rankProducts } from "@/lib/api/normalize";
 import { STORE_MAP } from "@/lib/catalog/stores";
-import { formatPKR, formatPKRShort, pluralise } from "@/lib/engine/format";
+import { formatPKR, pluralise } from "@/lib/engine/format";
 import { formatQuantity, type ProductDetail, type Unit } from "@/lib/types";
 import type { ReceiptParse } from "@/lib/receipt/parse";
 
@@ -442,7 +442,7 @@ export function ReceiptScanner({ examples }: { examples: Example[] }) {
                       </div>
 
                       <span
-                        className={`hidden h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-cream-200 sm:block`}
+                        className="h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-cream-200 sm:w-16"
                         title={`Confidence ${Math.round(line.confidence * 100)}%`}
                       >
                         <span
@@ -518,6 +518,26 @@ export function ReceiptScanner({ examples }: { examples: Example[] }) {
         </AnimatePresence>
       </div>
 
+      {parsed && selected.length > 0 && (
+        <div className="dock lg:hidden">
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-sage-500">
+                {pluralise(selected.length, "item")} from this bill
+              </p>
+              {plan && (
+                <p className="tabular font-display text-[1.4rem] font-semibold leading-tight text-forest-950">
+                  {formatPKR(plan.savings.bestTotal)}
+                </p>
+              )}
+            </div>
+            <Button variant="accent" size="lg" onClick={() => addToBasket(true)}>
+              Add to basket
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* summary rail */}
       <aside className="lg:sticky lg:top-20">
         {!parsed ? (
@@ -528,8 +548,8 @@ export function ReceiptScanner({ examples }: { examples: Example[] }) {
               <li>2. Each line is matched to a product in the catalogue, with a confidence.</li>
               <li>3. You fix what it got wrong, then the basket is priced at every store.</li>
             </ol>
-            <p className="mt-4 rounded-lg bg-warn-soft px-3 py-2 text-[0.78rem] text-warn">
-              Nothing is uploaded except the text. Photos stay in the browser.
+            <p className="mt-4 rounded-xl bg-cream-100 px-3 py-2 text-[0.78rem] leading-relaxed text-sage-600">
+              Photos stay in your browser — only the text it finds is matched against the catalogue.
             </p>
           </div>
         ) : (
@@ -574,10 +594,9 @@ export function ReceiptScanner({ examples }: { examples: Example[] }) {
                 )}
               </dl>
               {unmatchedValue > 0 && (
-                <p className="mt-3 rounded-lg bg-warn-soft px-3 py-2 text-[0.76rem] leading-relaxed text-warn">
+                <p className="mt-3 rounded-xl bg-cream-100 px-3 py-2 text-[0.76rem] leading-relaxed text-sage-600">
                   {formatPKR(unmatchedValue)} across {pluralise(unmatchedLines, "line")} is not
-                  matched yet, so the two totals above are not like for like. Fix the flagged lines
-                  to compare the whole bill.
+                  matched yet, so those two totals are not like for like yet.
                 </p>
               )}
               {catalogueLoading && <p className="mt-3 text-[0.78rem] text-sage-500">Loading prices…</p>}

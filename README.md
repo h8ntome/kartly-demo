@@ -10,8 +10,8 @@ charges, which is exactly the arithmetic shoppers never do by hand.
 This repository is the working app: a real comparison engine, a data layer with a swappable price
 source, and a real UI on top. **Every price and delivery rule in it is a supplied figure** — see
 `lib/catalog/dataset.ts`. Nothing is generated, seeded or estimated, and where a store's delivery
-charge was not supplied the app says "delivery fee unknown" instead of pretending it is free. None
-of these supermarkets is a Kartly partner.
+charge was not supplied the app says "delivery not published" instead of pretending it is free.
+None of these supermarkets is a Kartly partner, and the app says so once, quietly, in the footer.
 
 ---
 
@@ -29,21 +29,29 @@ Other commands:
 | `npm run build` + `npm start` | Production build and serve |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
-| `npm test` | Runs the engine test harness (650 assertions over the supplied catalogue) |
+| `npm test` | Engine harness (650 assertions) plus the demo-order flow harness (31 assertions) |
+| `npm run test:flow` | Just the checkout/order-progress harness |
 
-No database, no accounts, no network calls: the catalogue is read from `lib/catalog/` at startup and
-the basket lives in `localStorage`.
+No database, no accounts, no network calls: the catalogue is read from `lib/catalog/` at startup,
+the basket lives in `localStorage`, and demo orders live there too.
 
 ---
 
 ## Pages
 
+The shell is a mobile app: a compact top bar, a bottom tab bar, thumb-height
+controls, bottom sheets for filters, sticky action bars and safe-area insets.
+Every route is designed phone-first and scales up to a two-column desktop layout.
+
 | Route | What is there |
 | --- | --- |
-| `/` | Worked example: one 5-line basket priced at all six stores, the widest per-product price gaps, and the store delivery rules |
+| `/` | Home: search, category chips, the savings spotlight (live from your basket, or the worked example), product and price-gap rails, the shops |
 | `/search` | Search and filter the catalogue; every product shows the cheapest store and the spread across stores |
-| `/product/[id]` | One product across all six stores — pack size, unit price, and where it is not available |
-| `/basket` | The optimiser: line editor, the cheapest plan (any number of shops), price grid, savings ledger |
+| `/product/[id]` | One product across all six stores — pack size, unit price, where it is not available, and an add bar |
+| `/basket` | The optimiser: line editor, savings headline, the cheapest plan (any number of shops), price grid, savings ledger |
+| `/checkout` | Demo checkout: one order per shop, address, slot, payment, totals, and a "Place demo order" button |
+| `/order/[id]` | Demo order tracking: confirmed → being picked → out for delivery → delivered, with the plan it came from |
+| `/orders` | Demo order history, held in this browser |
 | `/stores` | All six supermarkets with their delivery rules and a measured price index |
 | `/receipt` | Receipt → basket. In-browser OCR (or pasted text), line-by-line matching with confidence, review, then straight into the basket |
 
@@ -73,7 +81,8 @@ lib/catalog/stores.ts     the six stores and their delivery rules
 lib/catalog/dataset.ts    the five products and every supplied price (24 prices, 6 gaps)
 lib/api/                  provider layer: supplied set today, REST tomorrow, one interface
 lib/engine/               pure arithmetic: pricing → quotes → split + multi-shop search → plan
-lib/basket/, components/  state and UI
+lib/basket/, lib/orders/   client state: basket rows and demo orders, both localStorage
+components/             the interface
 ```
 
 - **Nothing in the UI imports the catalogue directly.** Everything goes through `lib/api`, which
@@ -112,11 +121,19 @@ Set `KARTLY_API_PROVIDER=rest` and `KARTLY_API_BASE_URL`. The provider expects t
 documented in `lib/api/providers/rest.ts`; the normaliser in `lib/api/normalize.ts` maps store-native
 SKUs and titles onto canonical products.
 
-A live source that fails falls back to the supplied snapshot **and the badge flips from "Live
-prices" to "Supplied prices"**. There is no code path that can print supplied prices under a live
-label.
+A live source that fails falls back to the supplied snapshot, and `GET /api/health` reports which
+one is actually in use. There is no code path that can print supplied prices under a live label.
 
 ---
+
+## The demo checkout
+
+`/checkout` turns the cheapest plan into one order per shop and `/order/[id]` walks it through
+confirmed → being picked → out for delivery → delivered. Nothing leaves the browser: no store is
+contacted, no payment is taken, and the screen says so. The stage is a pure function of the order's
+timestamp, so a refresh keeps the story consistent instead of resetting it, and the timings are
+compressed (`ORDER_STAGES` in `lib/orders/store.tsx`) so the progression is visible inside a
+presentation.
 
 ## Testing
 
@@ -132,6 +149,11 @@ than the best single store and matches a hand-enumerated optimum, pack rounding 
 pruned and unpruned split searches agree, unavailable lines are never quoted or priced as zero, and
 both example receipts come back with the right lines at the right prices.
 
+`npm run test:flow` covers the demo order path: every basket line lands in exactly one shop order,
+shop subtotals and counted delivery reconcile with the plan total, ordered quantities match the
+basket, the saving is exactly `dearest shop − plan`, and the status stages advance in order and stop
+at delivered.
+
 ---
 
 ## Known limits
@@ -144,4 +166,6 @@ both example receipts come back with the right lines at the right prices.
   paste-text path works offline.
 - The receipt matcher is a deterministic text matcher (phrase, token-coverage and bigram similarity),
   not a learned model. Anything it is unsure about is flagged for review rather than guessed at.
-- No accounts, no order placement, no persistence beyond the browser's `localStorage`.
+- Orders are simulated. They are real orders in shape — one per shop, each with its own delivery
+  rule — but nothing is sent to a store and no payment is taken.
+- Order status advances on a compressed clock, not a store's picking system.

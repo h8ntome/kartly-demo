@@ -1,19 +1,21 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Button, Price } from "@/components/ui/Primitives";
+import { Stepper } from "@/components/ui/Stepper";
 import { StoreBadge } from "@/components/brand/Logo";
 import { formatPKR, formatQuantityInput } from "@/lib/engine/format";
 import { normaliseQuantity, type ProductDetail } from "@/lib/types";
 import type { BasketRow } from "@/lib/basket/store";
 import type { BasketPlan } from "@/lib/engine/plan";
+import { TrashIcon } from "@/components/ui/Icons";
 
 /**
  * Basket line editor.
  *
  * Quantities are edited in the product's own unit (kg, L, dozen) rather than
  * "number of packs", because that is how people write a shopping list. The
- * engine decides how many packs that actually costs.
+ * engine decides how many packs that actually costs, and the line says so when
+ * the shop can only sell a bigger pack.
  */
 
 interface Props {
@@ -35,9 +37,12 @@ export function LineEditor({ rows, products, plan, onChange, onRemove }: Props) 
               <span className="text-sm text-sage-500">
                 Unknown product <code className="rounded bg-cream-100 px-1">{row.canonicalId}</code>
               </span>
-              <Button size="sm" variant="danger" onClick={() => onRemove(row.id)}>
+              <button
+                onClick={() => onRemove(row.id)}
+                className="text-[0.8rem] font-semibold text-spend"
+              >
                 Remove
-              </Button>
+              </button>
             </li>
           );
         }
@@ -45,106 +50,76 @@ export function LineEditor({ rows, products, plan, onChange, onRemove }: Props) 
         const qty = normaliseQuantity(product.defaultQuantity, product.unit);
         const step = stepFor(product.defaultQuantity, product.unit);
         const cheapest = cheapestCell(plan, row.id);
-        const availableEverywhere =
-          plan && plan.quotes.filter((quote) => quote.lines.some((line) => line.lineId === row.id));
-        const missingCount = plan ? plan.quotes.length - (availableEverywhere?.length ?? 0) : 0;
+        const stockedAt = plan
+          ? plan.quotes.filter((quote) => quote.lines.some((line) => line.lineId === row.id)).length
+          : 0;
 
         return (
-          <li key={row.id} className="flex flex-wrap items-center gap-3 py-3.5 sm:flex-nowrap">
-            <span
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-cream-100 text-xl ring-1 ring-inset ring-cream-200"
-              aria-hidden="true"
-            >
-              {product.glyph}
-            </span>
-
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-ink">{product.name}</p>
-              <p className="mt-0.5 text-[0.76rem] text-sage-500">
-                {cheapest ? (
-                  <>
-                    Cheapest {formatPKR(cheapest.cost)} at{" "}
-                    <span className="font-semibold text-save">{storeNameOf(plan, cheapest.storeId)}</span>
-                    {cheapest.packs > 1 && ` · ${cheapest.packs} packs`}
-                    {cheapest.surplus > 0.001 &&
-                      ` · you get ${formatQuantityInput(cheapest.surplus)} ${product.unit} extra`}
-                  </>
-                ) : (
-                  <span className="text-warn">No store in stock can supply this</span>
-                )}
-                {missingCount > 0 && <span className="text-warn"> · out of reach at {missingCount} stores</span>}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1 rounded-xl border border-cream-300 bg-white p-1">
-              <StepButton
-                label={`Decrease ${product.name}`}
-                onClick={() => onChange(row.id, +(row.quantity - step).toFixed(3))}
-                disabled={row.quantity <= step}
+          <motion.li
+            key={row.id}
+            layout
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="py-3.5"
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-cream-100 text-xl ring-1 ring-inset ring-cream-200"
+                aria-hidden="true"
               >
-                −
-              </StepButton>
-              <span className="tabular min-w-[4.6rem] text-center text-[0.82rem] font-semibold text-ink">
-                {formatQuantityInput(row.quantity)} {qty.unit}
+                {product.glyph}
               </span>
-              <StepButton
-                label={`Increase ${product.name}`}
-                onClick={() => onChange(row.id, +(row.quantity + step).toFixed(3))}
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-ink">{product.name}</p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[0.76rem] text-sage-500">
+                  {cheapest ? (
+                    <>
+                      <span className="tabular font-semibold text-save">{formatPKR(cheapest.cost)}</span>
+                      at {storeNameOf(plan, cheapest.storeId)}
+                      <StoreBadge storeId={cheapest.storeId} size="sm" />
+                      {cheapest.packs > 1 && <span>· {cheapest.packs} packs</span>}
+                      {cheapest.surplus > 0.001 && (
+                        <span className="text-warn">
+                          · {formatQuantityInput(cheapest.surplus)} {product.unit} extra
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-warn">No shop in stock can supply this</span>
+                  )}
+                  {stockedAt > 0 && stockedAt < (plan?.quotes.length ?? 0) && (
+                    <span className="text-sage-400">· {stockedAt} shops have it</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-2.5 flex items-center justify-between gap-3 pl-[3.75rem]">
+              <Stepper
+                size="sm"
+                value={row.quantity}
+                step={step}
+                min={step}
+                unit={qty.unit}
+                label={product.name}
+                onChange={(next) => (next <= 0 ? onRemove(row.id) : onChange(row.id, next))}
+              />
+              <button
+                onClick={() => onRemove(row.id)}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[0.76rem] font-medium text-sage-500 transition-colors hover:bg-spend-soft hover:text-spend"
+                aria-label={`Remove ${product.name}`}
               >
-                +
-              </StepButton>
+                <TrashIcon className="h-4 w-4" />
+                Remove
+              </button>
             </div>
-
-            <div className="w-[6.5rem] text-right">
-              {cheapest ? (
-                <Price amount={cheapest.cost} size="sm" tone="muted" />
-              ) : (
-                <span className="text-[0.78rem] text-sage-400">—</span>
-              )}
-            </div>
-
-            <button
-              onClick={() => onRemove(row.id)}
-              className="grid h-8 w-8 place-items-center rounded-lg text-sage-400 transition-colors hover:bg-spend-soft hover:text-spend"
-              aria-label={`Remove ${product.name}`}
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
-                <path
-                  d="M5.5 5.5l9 9m0-9l-9 9"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-          </li>
+          </motion.li>
         );
       })}
     </ul>
-  );
-}
-
-function StepButton({
-  children,
-  label,
-  onClick,
-  disabled,
-}: {
-  children: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <motion.button
-      whileTap={{ scale: 0.9 }}
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      className="grid h-7 w-7 place-items-center rounded-lg text-[1.05rem] leading-none text-forest-800 transition-colors hover:bg-cream-100 disabled:opacity-30"
-    >
-      {children}
-    </motion.button>
   );
 }
 
@@ -176,7 +151,7 @@ export function AlternativeHints({ plan }: { plan: BasketPlan }) {
       {plan.alternatives.map((alternative) => (
         <div
           key={`${alternative.lineId}-${alternative.to.canonicalId}`}
-          className="flex flex-wrap items-center gap-2 rounded-xl bg-cream-100 px-3 py-2.5 text-[0.82rem]"
+          className="flex flex-wrap items-center gap-2 rounded-2xl bg-cream-100 px-3 py-2.5 text-[0.82rem]"
         >
           <StoreBadge storeId={alternative.storeId} size="sm" />
           <span className="text-ink-soft">

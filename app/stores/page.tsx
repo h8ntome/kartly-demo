@@ -5,7 +5,7 @@ import { effectivePackPrice } from "@/lib/engine/pricing";
 import { STORES } from "@/lib/catalog/stores";
 import { StoreBadge } from "@/components/brand/Logo";
 import { AnimatedNumber, GrowBar, Reveal } from "@/components/motion/Motion";
-import { LinkButton, SectionHeading, Tag } from "@/components/ui/Primitives";
+import { LinkButton } from "@/components/ui/Primitives";
 import { deliveryRuleLabel } from "@/lib/engine/format";
 import type { ProductDetail, StoreId } from "@/lib/types";
 
@@ -93,30 +93,23 @@ export default async function StoresPage() {
   );
   const best = stats.get(ranked[0].id)!;
   const worstIndex = Math.max(...[...stats.values()].map((s) => s.priceIndex));
-  const live = snapshot.source === "live";
 
   return (
-    <div className="mx-auto w-full max-w-[84rem] px-4 py-8 sm:px-6 sm:py-12">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-2xl">
-          <div className="flex flex-wrap items-center gap-2">
-            <Tag tone={live ? "live" : "warn"}>
-              {live ? "Live prices" : "Supplied prices"}
-            </Tag>
-            <span className="text-[0.78rem] text-sage-500">
-              {snapshot.products.length} products · {snapshot.products.reduce((n, p) => n + p.offers.length, 0)} prices
-            </span>
-          </div>
-          <h1 className="mt-4 text-[2.1rem] leading-[1.06] text-forest-950 sm:text-[2.7rem]">
-            {STORES.length} supermarkets, priced the way you actually shop
-          </h1>
-          <p className="mt-4 text-[1rem] leading-relaxed text-sage-600">
-            No store is cheap at everything. The table below is measured from the catalogue Kartly
-            holds right now: how much each shop has in stock, how often it is the cheapest place for
-            a product, and what it would cost to buy one of everything it has.
-          </p>
-        </div>
-        <div className="flex gap-2">
+    <div className="mx-auto w-full max-w-[84rem] px-4 pb-4 sm:px-6">
+      <div className="pt-6">
+        <p className="text-[0.76rem] font-semibold text-sage-500">
+          {snapshot.products.length} products ·{" "}
+          {snapshot.products.reduce((count, product) => count + product.offers.length, 0)} prices
+        </p>
+        <h1 className="mt-2 text-[2rem] leading-[1.05] tracking-[-0.02em] text-forest-950 sm:text-[2.6rem]">
+          {STORES.length} supermarkets, priced the way you actually shop
+        </h1>
+        <p className="mt-3 max-w-2xl text-[0.95rem] leading-relaxed text-sage-600">
+          No shop is cheap at everything. This table is measured from the catalogue Kartly holds
+          right now: what each shop has, how often it is the cheapest place for a product, and what
+          it would cost to buy one of everything it carries.
+        </p>
+        <div className="mt-4 flex gap-2">
           <LinkButton href="/basket" variant="primary">
             Price my basket
           </LinkButton>
@@ -127,24 +120,27 @@ export default async function StoresPage() {
       </div>
 
       {/* ------------------------------------------- index leaderboard */}
-      <section className="mt-10 rounded-4xl border border-cream-200 bg-white p-6 shadow-[var(--shadow-card)] sm:p-8">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
+      <section className="mt-8 rounded-[1.75rem] border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-7">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-[1.25rem] font-semibold text-forest-950">
             Overall price index
           </h2>
-          <p className="text-[0.78rem] text-sage-500">
-            100 = the cheapest available price for every item the store carries
+          <p className="text-[0.74rem] text-sage-500">
+            100 = cheapest available price for everything the shop carries
           </p>
         </div>
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-5 space-y-3">
           {ranked.map((store, index) => {
             const stat = stats.get(store.id)!;
             // Longest bar = cheapest, so the eye reads "good" the same way it
             // does on every other chart in the app.
             const ratio = (worstIndex + 4 - stat.priceIndex) / (worstIndex + 4 - 100);
             return (
-              <div key={store.id} className="grid grid-cols-[8.5rem_1fr_7.5rem] items-center gap-3 sm:grid-cols-[10rem_1fr_9rem]">
+              <div
+                key={store.id}
+                className="grid grid-cols-[7rem_1fr_4.25rem] items-center gap-3 sm:grid-cols-[10rem_1fr_5rem]"
+              >
                 <a
                   href={`#${store.id}`}
                   className="flex min-w-0 items-center gap-2 text-[0.86rem] hover:text-forest-700"
@@ -170,9 +166,9 @@ export default async function StoresPage() {
           })}
         </div>
 
-        <p className="mt-6 rounded-xl bg-cream-100 px-4 py-3 text-[0.82rem] leading-relaxed text-sage-600">
-          <strong className="font-semibold text-forest-800">{best ? ranked[0].name : ""}</strong> is
-          the cheapest overall on this catalogue, but only{" "}
+        <p className="mt-6 rounded-2xl bg-cream-100 px-4 py-3 text-[0.82rem] leading-relaxed text-sage-600">
+          <strong className="font-semibold text-forest-800">{ranked[0].name}</strong> is the cheapest
+          overall on this catalogue, but only{" "}
           <strong className="font-semibold text-forest-800">
             {`${Math.round((best.cheapestFor / Math.max(1, best.inStock)) * 100)}%`}
           </strong>{" "}
@@ -182,15 +178,17 @@ export default async function StoresPage() {
       </section>
 
       {/* ------------------------------------------------ store cards */}
-      <div className="mt-14">
-        <SectionHeading
-          eyebrow="Store by store"
-          title="The rules each one charges you by"
-          lead="The delivery charge, and the subtotal that makes it free. Where a store has not published a charge, Kartly leaves it unknown and says so — an unknown fee is never counted as a free one."
-        />
+      <div className="mt-12">
+        <h2 className="font-display text-[1.45rem] font-semibold text-forest-950 sm:text-[1.75rem]">
+          The rules each shop charges you by
+        </h2>
+        <p className="mt-2 max-w-2xl text-[0.92rem] leading-relaxed text-sage-600">
+          The delivery charge, and the subtotal that makes it free. Where a shop has not published a
+          charge, Kartly leaves it unknown instead of guessing.
+        </p>
       </div>
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-2">
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
         {ranked.map((store, index) => {
           const stat = stats.get(store.id)!;
           return (
@@ -201,7 +199,7 @@ export default async function StoresPage() {
             >
               <article
                 id={store.id}
-                className="flex h-full flex-col rounded-4xl border border-cream-200 bg-white p-6 shadow-[var(--shadow-card)]"
+                className="flex h-full flex-col rounded-[1.75rem] border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -259,16 +257,6 @@ export default async function StoresPage() {
           );
         })}
       </div>
-
-      <p className="mt-12 max-w-3xl rounded-xl bg-cream-100 px-4 py-3 text-[0.8rem] leading-relaxed text-sage-600">
-        Store names are real Karachi supermarkets; the prices, fees and thresholds in this app are{" "}
-        {live ? (
-          "read from the connected price source"
-        ) : (
-          <strong className="font-semibold text-warn">the figures supplied to Kartly</strong>
-        )}{" "}
-        and are not their published price lists. None of these stores is a Kartly partner.
-      </p>
     </div>
   );
 }

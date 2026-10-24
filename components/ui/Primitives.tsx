@@ -135,7 +135,7 @@ export function Price({
     muted: "text-sage-500",
   } as const;
   return (
-    <span className={`tabular inline-flex items-baseline gap-2 ${className}`}>
+    <span className={`tabular inline-flex items-baseline gap-2 whitespace-nowrap ${className}`}>
       <span className={`${sizes[size]} font-semibold tracking-tight ${tones[tone]}`}>
         {formatPKR(amount)}
       </span>

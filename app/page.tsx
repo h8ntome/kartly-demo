@@ -5,25 +5,36 @@ import { getSnapshot, summarise } from "@/lib/api/index";
 import { compareBasket, toBasketItems } from "@/lib/engine/plan";
 import { EXAMPLE_BASKET } from "@/lib/catalog/dataset";
 import { STORES } from "@/lib/catalog/stores";
-import { SearchBox, ProductCard } from "@/components/search/SearchUi";
-import { StoreTotalsChart, SavingsLedger } from "@/components/basket/Verdict";
-import { LoadBasketCta } from "@/components/home/HeroActions";
-import { AnimatedNumber, Reveal } from "@/components/motion/Motion";
-import { EmptyState, LinkButton, SectionHeading, Tag } from "@/components/ui/Primitives";
+import { SearchBox, ProductTile } from "@/components/search/SearchUi";
+import { SavingsSpotlight } from "@/components/home/SavingsSpotlight";
+import { Reveal } from "@/components/motion/Motion";
+import { LinkButton } from "@/components/ui/Primitives";
 import { StoreBadge } from "@/components/brand/Logo";
-import { formatPKR, formatPKRShort, deliveryRuleLabel } from "@/lib/engine/format";
-import type { ProductDetail } from "@/lib/types";
+import { SearchBoxSkeleton } from "@/components/ui/Skeletons";
+import {
+  ChevronRightIcon,
+  ReceiptIcon,
+  ScanIcon,
+  StoreIcon,
+} from "@/components/ui/Icons";
+import { formatPKR, formatQuantityInput, deliveryRuleLabel } from "@/lib/engine/format";
+import {
+  normaliseQuantity,
+  type CatalogSummary,
+  type ProductDetail,
+  type StoreId,
+} from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Kartly — your shopping list, at the lowest possible cost",
 };
 
 /**
- * Home page.
+ * Home screen.
  *
- * Every number on this screen is produced by the same engine the basket page
- * runs, over the same supplied catalogue. Nothing here is typed in, which is
- * the only reason a comparison like this is worth showing anyone.
+ * Every number on this screen comes from the same engine the basket runs over
+ * the same catalogue, computed at render time. Nothing here is typed in, which
+ * is the only reason a comparison like this is worth showing anyone.
  */
 export default async function HomePage() {
   const snapshot = await getSnapshot();
@@ -36,330 +47,319 @@ export default async function HomePage() {
   }));
   const plan = compareBasket(toBasketItems(rows, products), products, snapshot.stores);
 
-  // How many of the cheapest-looking totals belong to a store that cannot
-  // actually fill the basket. Computed, not asserted — the copy is only as
-  // honest as the number behind it.
-  const incompleteStores = plan ? plan.quotes.filter((quote) => !quote.complete).length : 0;
-  const cheapestAreMirages = (() => {
-    if (!plan) return 0;
-    let count = 0;
-    for (const quote of [...plan.quotes].sort((a, b) => a.total - b.total)) {
-      if (quote.complete) break;
-      count += 1;
-    }
-    return count;
-  })();
-
-  const mirageCopy =
-    cheapestAreMirages === 1
-      ? "the cheapest total on that card belongs to a store that is missing something"
-      : `the ${cheapestAreMirages} cheapest totals on that card all belong to stores that are missing something`;
-
-  // The widest per-product gaps in the catalogue — the "why this exists" proof.
-  const widest = snapshot.products
-    .map(summarise)
+  const summaries = snapshot.products.map(summarise);
+  const categories = [...new Set(snapshot.products.map((product) => product.category))].sort();
+  const widest = summaries
     .filter((summary) => summary.spread > 0 && summary.availableAt.length > 1)
     .sort((a, b) => b.spread - a.spread)
     .slice(0, 6);
 
-  const live = snapshot.source === "live";
-
   return (
-    <div className="pb-4">
+    <div className="mx-auto w-full max-w-[84rem] px-4 pb-6 sm:px-6">
       {/* ------------------------------------------------------- hero */}
-      <section className="relative overflow-hidden border-b border-cream-200 bg-cream-100/60">
-        <div
-          className="pointer-events-none absolute -right-40 -top-40 h-[34rem] w-[34rem] rounded-full bg-lime-300/25 blur-3xl"
-          aria-hidden="true"
-        />
-        <div className="relative mx-auto grid w-full max-w-[84rem] gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-14">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Tag tone={live ? "live" : "warn"}>
-                {live ? "Live prices" : "Supplied prices"}
-              </Tag>
-              <span className="text-[0.78rem] text-sage-500">
-                {snapshot.stores.length} Karachi supermarkets · {snapshot.products.length} products
-              </span>
-            </div>
-
-            <h1 className="mt-5 text-[2.6rem] leading-[1.02] tracking-[-0.03em] text-forest-950 sm:text-[3.6rem]">
-              Your shopping list,
-              <br />
-              at the <span className="text-forest-600">lowest</span>
-              <br />
-              possible cost.
-            </h1>
-
-            <p className="mt-5 max-w-xl text-[1.05rem] leading-relaxed text-sage-600">
-              Kartly prices your whole basket at every supermarket it has prices for — pack sizes,
-              availability and delivery included — then tells you the cheapest practical way to buy
-              it. One shop, two shops, sometimes more: you do not choose, the arithmetic does.
-            </p>
-
-            <div className="mt-7 max-w-xl">
-              <Suspense fallback={<div className="h-14" />}>
-                <SearchBox size="lg" />
-              </Suspense>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <LoadBasketCta
-                rows={EXAMPLE_BASKET}
-                label={`Try it on a ${EXAMPLE_BASKET.length}-line basket`}
-              />
-              <LinkButton href="/receipt" variant="outline" size="lg">
-                Scan a receipt
-              </LinkButton>
-              <Link
-                href="/search?sort=savings-desc"
-                className="text-[0.9rem] font-semibold text-forest-700 hover:underline"
-              >
-                Or browse every price →
-              </Link>
-            </div>
-          </div>
-
-          {/* The verdict card, computed at render time from the example basket. */}
-          {plan && plan.bestSingle && (
-            <Reveal className="w-full">
-              <div className="rounded-4xl border border-cream-200 bg-white p-6 shadow-[var(--shadow-lift)] sm:p-7">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-lime-700">
-                      Example basket · {plan.items.length} lines
-                    </p>
-                    <p className="mt-2 font-display text-[1.05rem] text-forest-950">
-                      Cheapest way to buy it
-                    </p>
-                    <AnimatedNumber
-                      value={plan.savings.bestTotal}
-                      format="pkr"
-                      className="mt-1 block font-display text-[2.9rem] font-semibold leading-none tracking-[-0.03em] text-save"
-                    />
-                  </div>
-                  <div className="rounded-xl bg-save-soft px-3 py-2 text-right">
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-save">
-                      {plan.savings.savingsCertain ? "vs dearest" : "vs dearest (est.)"}
-                    </p>
-                    <p className="tabular font-display text-xl font-semibold text-save">
-                      −{formatPKRShort(plan.savings.bestVsWorst)}
-                    </p>
-                  </div>
-                </div>
-
-                <dl className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl bg-forest-900 px-3.5 py-3">
-                    <dt className="text-[0.72rem] uppercase tracking-[0.08em] text-lime-400">
-                      Kartly&apos;s plan · {plan.bestPlan?.storeCount ?? 1}{" "}
-                      {plan.bestPlan && plan.bestPlan.storeCount === 1 ? "shop" : "shops"}
-                    </dt>
-                    <dd className="mt-1 flex items-center justify-between gap-2 text-cream-50">
-                      <span className="text-[0.82rem]">
-                        {plan.bestPlan
-                          ? snapshot.stores
-                              .filter((s) => plan.bestPlan!.orders.some((order) => order.storeId === s.id))
-                              .map((s) => s.name)
-                              .join(" + ")
-                          : "not available"}
-                      </span>
-                      <span className="tabular font-semibold">
-                        {plan.bestPlan ? formatPKR(plan.bestPlan.total) : "—"}
-                      </span>
-                    </dd>
-                  </div>
-                  <div className="rounded-xl bg-cream-100 px-3.5 py-3">
-                    <dt className="text-[0.72rem] uppercase tracking-[0.08em] text-sage-500">
-                      Best single store
-                    </dt>
-                    <dd className="mt-1 flex items-center justify-between gap-2">
-                      <StoreBadge storeId={plan.bestSingle!.storeId} size="sm" showName />
-                      <span className="tabular font-semibold text-ink">
-                        {formatPKR(plan.bestSingle!.total)}
-                      </span>
-                    </dd>
-                  </div>
-                </dl>
-
-                <div className="mt-6 border-t border-cream-200 pt-5">
-                  <p className="mb-3 text-[0.72rem] font-semibold uppercase tracking-[0.1em] text-sage-500">
-                    What this basket costs at each store
-                  </p>
-                  <StoreTotalsChart plan={plan} />
-                </div>
-
-                <p className="mt-4 text-[0.76rem] leading-relaxed text-sage-500">
-                  {plan.savings.bestDeliveryKnown
-                    ? "Every delivery charge in this plan is a published one."
-                    : "Some delivery charges in this plan are not published, so this total is a floor and may be higher."}{" "}
-                  {live
-                    ? "Prices came from the connected feed."
-                    : "Prices are the supplied figures for these stores, not live checkout prices."}
-                </p>
-              </div>
-            </Reveal>
-          )}
+      <section className="pt-6 sm:pt-10">
+        <div className="flex items-center gap-2 text-[0.76rem] font-semibold text-sage-500">
+          <span className="inline-flex h-5 items-center rounded-full bg-cream-200 px-2 text-forest-800">
+            Karachi
+          </span>
+          <span>
+            {snapshot.stores.length} supermarkets · {snapshot.products.length} products priced
+          </span>
         </div>
-      </section>
+        <h1 className="mt-3 max-w-[16ch] text-[2.35rem] leading-[1.02] tracking-[-0.03em] text-forest-950 sm:max-w-none sm:text-[3.4rem]">
+          Your shopping list, at the <span className="text-forest-600">lowest</span> possible cost.
+        </h1>
+        <p className="mt-3 max-w-xl text-[0.98rem] leading-relaxed text-sage-600 sm:text-[1.05rem]">
+          Kartly prices your whole basket at every supermarket it has prices for — pack sizes,
+          availability and delivery included — then tells you the cheapest practical way to buy it.
+        </p>
 
-      {/* --------------------------------------------- why one store loses */}
-      <section className="mx-auto w-full max-w-[84rem] px-4 py-16 sm:px-6 sm:py-20">
-        <div className="grid gap-10 lg:grid-cols-[1fr_1fr] lg:items-start lg:gap-16">
-          <div>
-            <SectionHeading
-              eyebrow="The trap"
-              title="The cheapest items do not make the cheapest basket"
-              lead="Everyone knows which shop has cheap rice. Almost nobody knows which shop is cheap for their whole list, because the answer depends on pack rounding, what is actually available, and a delivery fee you only see at checkout."
-            />
-            <div className="mt-7 space-y-4 text-[0.95rem] leading-relaxed text-sage-600">
-              <p>
-                On the basket to the right, {incompleteStores} of the {plan?.quotes.length ?? 6}{" "}
-                stores cannot supply every line on the list, and {mirageCopy}. The store that wins
-                is not the one you would have guessed.
-              </p>
-              <p>
-                Splitting this list across {plan?.bestPlan
-                  ? plan.bestPlan.storeCount === 1
-                    ? "one shop"
-                    : `${plan.bestPlan.storeCount} shops`
-                  : "more than one shop"}{" "}
-                is worth {plan ? formatPKR(plan.savings.splitVsSingle) : "—"} here — counted only
-                against delivery charges the stores actually publish, which is exactly the
-                arithmetic Kartly does and shoppers almost never do.
-              </p>
-            </div>
-            <div className="mt-7">
-              <LinkButton href="/basket" variant="primary">
-                Open the basket optimiser
-              </LinkButton>
-            </div>
-          </div>
-
-          <Reveal className="rounded-4xl border border-cream-200 bg-white p-6 shadow-[var(--shadow-card)] sm:p-7">
-            <h3 className="font-display text-[1.1rem] font-semibold text-forest-950">
-              Where the money goes
-            </h3>
-            <p className="mb-4 mt-1 text-[0.82rem] text-sage-600">
-              Same basket, same {snapshot.stores.length} stores, different totals.
-            </p>            {plan && <SavingsLedger plan={plan} />}
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------- how it works */}
-      <section className="border-y border-cream-200 bg-cream-100/60">
-        <div className="mx-auto w-full max-w-[84rem] px-4 py-16 sm:px-6 sm:py-20">
-          <SectionHeading
-            eyebrow="How it works"
-            title="Three steps, about a minute"
-            align="center"
-          />
-          <ol className="mt-12 grid gap-6 md:grid-cols-3">
-            {STEPS.map((step, index) => (
-              <Reveal
-                as="li"
-                key={step.title}
-                delay={index * 0.08}
-                className="relative flex flex-col rounded-4xl border border-cream-200 bg-white p-6 shadow-[var(--shadow-card)]"
-              >
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-forest-900 font-display text-[1.05rem] font-semibold text-lime-500">
-                  {index + 1}
-                </span>
-                <h3 className="mt-5 font-display text-[1.15rem] font-semibold text-forest-950">
-                  {step.title}
-                </h3>
-                <p className="mt-2 text-[0.92rem] leading-relaxed text-sage-600">{step.body}</p>
-                <span className="mt-4 text-2xl" aria-hidden="true">
-                  {step.glyph}
-                </span>
-              </Reveal>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      {/* -------------------------------------------------- price gaps */}
-      <section className="mx-auto w-full max-w-[84rem] px-4 py-16 sm:px-6 sm:py-20">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <SectionHeading
-            eyebrow="Widest gaps"
-            title={`Same product, ${snapshot.stores.length} prices`}
-            lead="The products with the largest difference between the cheapest and dearest shop. This spread is what a shopper absorbs silently every month."
-          />
-          <LinkButton href="/search?sort=savings-desc" variant="outline">
-            See all gaps
-          </LinkButton>
+        <div className="mt-5 max-w-xl">
+          <Suspense fallback={<SearchBoxSkeleton />}>
+            <SearchBox size="lg" />
+          </Suspense>
         </div>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {widest.map((summary) => (
-            <ProductCard key={summary.product.id} summary={summary} />
-          ))}
-        </div>
-
-        {widest.length === 0 && (
-          <div className="mt-10">
-            <EmptyState
-              glyph="🧺"
-              title="No catalogue yet"
-              body="The configured price source returned no products. Check /api/health for the reason."
-            />
-          </div>
-        )}
-      </section>
-
-      {/* ------------------------------------------------------ stores */}
-      <section className="mx-auto w-full max-w-[84rem] px-4 pb-16 sm:px-6 sm:pb-20">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <SectionHeading
-            eyebrow={`The ${snapshot.stores.length === 6 ? "six" : snapshot.stores.length}`}
-            title="Delivery fees are the whole story"
-            lead="A Rs 200 cheaper basket loses to a free-delivery threshold every time. These are the rules Kartly prices against — and where a store has not published a charge, Kartly says so instead of guessing."
-          />
-          <LinkButton href="/stores" variant="outline">
-            Compare the stores
-          </LinkButton>
-        </div>
-
-        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {STORES.map((store) => (
+        <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          {categories.map((category) => (
             <Link
-              key={store.id}
-              href={`/stores#${store.id}`}
-              className="group flex items-center gap-4 rounded-2xl border border-cream-200 bg-white px-4 py-3.5 transition-all duration-300 ease-[var(--ease-out-expo)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)]"
+              key={category}
+              href={`/search?category=${encodeURIComponent(category)}`}
+              className="inline-flex h-9 shrink-0 items-center rounded-full border border-cream-300 bg-white px-3.5 text-[0.82rem] font-medium text-ink-soft shadow-[var(--shadow-card)] transition-colors hover:border-sage-300 hover:text-forest-800"
             >
-              <StoreBadge storeId={store.id} size="md" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold text-forest-950">{store.name}</span>
-                <span className="block text-[0.78rem] text-sage-500">
-                  {deliveryRuleLabel(store)}
-                </span>
-              </span>
-              <span className="text-sage-300 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-forest-600">
-                →
-              </span>
+              {category}
             </Link>
           ))}
+          <Link
+            href="/search"
+            className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-forest-800 px-3.5 text-[0.82rem] font-semibold text-cream-50 transition-colors hover:bg-forest-700"
+          >
+            All products
+            <ChevronRightIcon className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </section>
+
+      {/* --------------------------------------------------- savings */}
+      <section className="mt-7">
+        <SavingsSpotlight examplePlan={plan} />
+      </section>
+
+      {/* ----------------------------------------------- product rail */}
+      <Rail
+        title="Add to your basket"
+        hint="Tap to add — the price shown is the cheapest shop that has it"
+        href="/search"
+        linkLabel="Browse all"
+      >
+        {summaries.map((summary) => (
+          <ProductTile key={summary.product.id} summary={summary} />
+        ))}
+      </Rail>
+
+      {/* ------------------------------------------------- price gaps */}
+      {widest.length > 0 && (
+        <Rail
+          title="Same product, different shop"
+          hint="The gap you pay for shopping at the wrong place"
+          href="/search?sort=savings-desc"
+          linkLabel="All gaps"
+        >
+          {widest.map((summary) => (
+            <GapCard key={summary.product.id} summary={summary} />
+          ))}
+        </Rail>
+      )}
+
+      {/* ----------------------------------------------------- shops */}
+      <Rail
+        title="The shops"
+        hint="Delivery rules are what decide the cheapest basket"
+        href="/stores"
+        linkLabel="Compare shops"
+      >
+        {STORES.map((store) => (
+          <Link
+            key={store.id}
+            href={`/stores#${store.id}`}
+            className="flex h-full flex-col rounded-3xl border border-cream-200 bg-white p-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]"
+          >
+            <StoreBadge storeId={store.id} size="lg" />
+            <p className="mt-3 font-display text-[1.02rem] font-semibold text-forest-950">
+              {store.name}
+            </p>
+            <p className="mt-1 text-[0.78rem] leading-snug text-sage-600">
+              {deliveryRuleLabel(store)}
+            </p>
+            <span className="mt-3 inline-flex items-center gap-1 text-[0.78rem] font-semibold text-forest-700">
+              See prices
+              <ChevronRightIcon className="h-3.5 w-3.5" />
+            </span>
+          </Link>
+        ))}
+      </Rail>
+
+      {/* ---------------------------------------------- how it works */}
+      <section className="mt-12">
+        <h2 className="font-display text-[1.45rem] font-semibold text-forest-950 sm:text-[1.75rem]">
+          Three steps, about a minute
+        </h2>
+        <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+          {STEPS.map((step, index) => (
+            <Reveal
+              as="li"
+              key={step.title}
+              delay={index * 0.07}
+              className="rounded-3xl border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)]"
+            >
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-forest-900 font-display text-[1rem] font-semibold text-lime-500">
+                {index + 1}
+              </span>
+              <h3 className="mt-3.5 font-display text-[1.05rem] font-semibold text-forest-950">
+                {step.title}
+              </h3>
+              <p className="mt-1.5 text-[0.88rem] leading-relaxed text-sage-600">{step.body}</p>
+            </Reveal>
+          ))}
+        </ol>
+      </section>
+
+      {/* --------------------------------------------- receipt promo */}
+      <Reveal className="mt-8">
+        <div className="flex flex-col gap-4 overflow-hidden rounded-[1.75rem] border border-cream-200 bg-white p-5 shadow-[var(--shadow-card)] sm:flex-row sm:items-center">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-cream-100 text-forest-800">
+            <ScanIcon className="h-6 w-6" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-display text-[1.1rem] font-semibold text-forest-950">
+              Already shopped? Scan the receipt.
+            </h3>
+            <p className="mt-1 text-[0.86rem] leading-relaxed text-sage-600">
+              Kartly reads the bill line by line, matches it to products and prices the same list
+              everywhere — so you can see what it should have cost.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <LinkButton href="/receipt" variant="primary">
+              <ReceiptIcon className="h-4 w-4" />
+              Scan now
+            </LinkButton>
+            <LinkButton href="/stores" variant="outline">
+              <StoreIcon className="h-4 w-4" />
+              Shops
+            </LinkButton>
+          </div>
+        </div>
+      </Reveal>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Building blocks
+ * ------------------------------------------------------------------ */
+
+function Rail({
+  title,
+  hint,
+  href,
+  linkLabel,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  href?: string;
+  linkLabel?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-11">
+      <div className="mb-3.5 flex items-end justify-between gap-3 px-0.5">
+        <div className="min-w-0">
+          <h2 className="font-display text-[1.35rem] font-semibold leading-tight text-forest-950 sm:text-[1.6rem]">
+            {title}
+          </h2>
+          {hint && <p className="mt-1 text-[0.8rem] text-sage-500">{hint}</p>}
+        </div>
+        {href && linkLabel && (
+          <Link
+            href={href}
+            className="inline-flex shrink-0 items-center gap-1 text-[0.82rem] font-semibold text-forest-700 hover:text-forest-900"
+          >
+            {linkLabel}
+            <ChevronRightIcon className="h-3.5 w-3.5" />
+          </Link>
+        )}
+      </div>
+      <div className="rail">{children}</div>
+    </section>
+  );
+}
+
+/** The proof card: one product, the cheapest shop and the dearest shop. */
+function GapCard({ summary }: { summary: CatalogSummary }) {
+  const { product } = summary;
+  const qty = normaliseQuantity(product.defaultQuantity, product.unit);
+  const dearest = summary.worstPrice;
+  const ratio = dearest > 0 ? summary.bestPrice / dearest : 1;
+
+  return (
+    <article className="flex h-full flex-col rounded-3xl border border-cream-200 bg-white p-4 shadow-[var(--shadow-card)]">
+      <Link href={`/product/${product.id}`} className="flex flex-1 flex-col">
+        <div className="flex items-start gap-3">
+          <span
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-cream-100 text-[1.4rem] ring-1 ring-inset ring-cream-200"
+            aria-hidden="true"
+          >
+            {product.glyph}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="line-clamp-2 text-[0.88rem] font-semibold leading-snug text-ink">
+              {product.name}
+            </h3>
+            <p className="text-[0.72rem] text-sage-500">
+              {formatQuantityInput(qty.quantity)} {qty.unit}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3.5 space-y-2">
+          <GapRow
+            storeId={summary.bestStoreId}
+            price={summary.bestPrice}
+            ratio={1}
+            tone="save"
+            caption="cheapest"
+          />
+          {dearest > summary.bestPrice && (
+            <GapRow
+              price={dearest}
+              ratio={ratio}
+              tone="spend"
+              caption={`${formatPKR(summary.spread)} more`}
+            />
+          )}
+        </div>
+
+        <div className="mt-auto pt-3">
+          <span className="inline-flex items-center rounded-lg bg-save-soft px-2 py-1 text-[0.76rem] font-bold text-save">
+            {formatPKR(summary.spread)} apart
+          </span>
+        </div>
+      </Link>
+    </article>
+  );
+}
+
+function GapRow({
+  storeId,
+  price,
+  ratio,
+  tone,
+  caption,
+}: {
+  storeId?: StoreId;
+  price: number;
+  ratio: number;
+  tone: "save" | "spend";
+  caption: string;
+}) {
+  return (
+    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+      {storeId ? <StoreBadge storeId={storeId} size="sm" /> : <span className="w-5" />}
+      <span className="relative h-1.5 overflow-hidden rounded-full bg-cream-200">
+        <span
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{
+            width: `${Math.max(6, ratio * 100)}%`,
+            background: tone === "save" ? "var(--color-forest-500)" : "var(--color-spend)",
+            opacity: tone === "save" ? 1 : 0.55,
+          }}
+        />
+      </span>
+      <span
+        className={`tabular text-[0.8rem] font-semibold ${
+          tone === "save" ? "text-save" : "text-sage-500"
+        }`}
+      >
+        {formatPKR(price)}
+        <span className="ml-1 text-[0.66rem] font-medium text-sage-400">{caption}</span>
+      </span>
     </div>
   );
 }
 
 const STEPS = [
   {
-    glyph: "🧾",
     title: "Build your list",
-    body: "Search products, type quantities the way you think in — 5 kg, 2 pieces — or scan a photo of a receipt and let Kartly read it.",
+    body: "Search products and set quantities the way you think in — 5 kg, 2 pieces — or scan a photo of a receipt and let Kartly read it.",
   },
   {
-    glyph: "⚖️",
-    title: "Compare every store",
-    body: "Every line is priced at every store that has it, in the pack you would actually have to buy, with availability checked and unavailable lines counted as missing.",
+    title: "Compare every shop",
+    body: "Every line is priced at every shop that has it, in the pack you would actually have to buy, with unavailable lines counted as missing.",
   },
   {
-    glyph: "🛒",
     title: "Buy the cheapest plan",
-    body: "Kartly returns the cheapest single store, the best split across stores, and what each decision is worth — so you can ignore the maths.",
+    body: "Kartly returns the cheapest single shop, the best split across shops, and what each decision is worth — so you can ignore the maths.",
   },
 ];

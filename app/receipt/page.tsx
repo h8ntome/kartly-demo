@@ -16,7 +16,7 @@ const examples = EXAMPLE_RECEIPTS.map((receipt) => ({ store: receipt.store, text
 
 export default function ReceiptPage() {
   return (
-    <div className="mx-auto w-full max-w-[84rem] px-4 py-8 sm:px-6 sm:py-12">
+    <div className="has-dock mx-auto w-full max-w-[84rem] px-4 pt-8 sm:px-6 sm:pt-12 lg:pb-12">
       <header className="max-w-3xl">
         <p className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-lime-700">
           Receipt scan

@@ -2,9 +2,12 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import { BasketProvider } from "@/lib/basket/store";
+import { OrdersProvider } from "@/lib/orders/store";
 import { SiteHeader } from "@/components/layout/Header";
 import { SiteFooter } from "@/components/layout/Footer";
-import { getDataStatus } from "@/lib/api/status";
+import { ActiveOrderBar } from "@/components/layout/ActiveOrderBar";
+import { TabBar } from "@/components/layout/TabBar";
+import { ToastProvider } from "@/components/ui/Toast";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -37,6 +40,11 @@ export const metadata: Metadata = {
     "cheapest grocery basket",
     "Naheed Hydri Carrefour prices",
   ],
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Kartly",
+  },
   openGraph: {
     title: "Kartly — your shopping list, at the lowest possible cost",
     description:
@@ -50,29 +58,35 @@ export const viewport: Viewport = {
   themeColor: "#0b3527",
   width: "device-width",
   initialScale: 1,
+  // Lets the app paint under the notch and the home indicator instead of
+  // leaving a white bar where the phone's chrome lives.
+  viewportFit: "cover",
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Read once per render so the header badge reflects the configured source.
-  const status = await getDataStatus();
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en-PK" className={`${fraunces.variable} ${inter.variable}`}>
       <body className="min-h-dvh antialiased">
         <BasketProvider>
-          <a
-            href="#main"
-            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-forest-800 focus:px-4 focus:py-2 focus:text-cream-50"
-          >
-            Skip to content
-          </a>
-          <div className="flex min-h-dvh flex-col">
-            <SiteHeader status={status} />
-            <main id="main" className="flex-1">
-              {children}
-            </main>
-            <SiteFooter />
-          </div>
+          <OrdersProvider>
+            <ToastProvider>
+              <a
+                href="#main"
+                className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-forest-800 focus:px-4 focus:py-2 focus:text-cream-50"
+              >
+                Skip to content
+              </a>
+              <div className="flex min-h-dvh flex-col">
+                <SiteHeader />
+                <ActiveOrderBar />
+                <main id="main" className="app-main flex-1">
+                  {children}
+                </main>
+                <SiteFooter />
+              </div>
+              <TabBar />
+            </ToastProvider>
+          </OrdersProvider>
         </BasketProvider>
       </body>
     </html>

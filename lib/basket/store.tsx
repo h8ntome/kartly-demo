@@ -34,6 +34,8 @@ interface BasketApi {
   ready: boolean;
   add: (canonicalId: string, quantity: number) => void;
   setQuantity: (id: string, quantity: number) => void;
+  /** Set the total quantity of a product, from anywhere that only knows the product. */
+  setProduct: (canonicalId: string, quantity: number) => void;
   remove: (id: string) => void;
   clear: () => void;
   replaceAll: (rows: Array<{ canonicalId: string; quantity: number }>) => void;
@@ -171,6 +173,22 @@ export function BasketProvider({ children }: { children: React.ReactNode }) {
     commit(readRows().filter((row) => row.id !== id));
   }, []);
 
+  const setProduct = useCallback((canonicalId: string, quantity: number) => {
+    const current = readRows();
+    const existing = current.find((row) => row.canonicalId === canonicalId);
+    if (!existing) {
+      if (quantity > 0) commit([...current, { id: newId(), canonicalId, quantity: +quantity.toFixed(3) }]);
+      return;
+    }
+    commit(
+      quantity <= 0
+        ? current.filter((row) => row.id !== existing.id)
+        : current.map((row) =>
+            row.id === existing.id ? { ...row, quantity: +quantity.toFixed(3) } : row,
+          ),
+    );
+  }, []);
+
   const clear = useCallback(() => commit([]), []);
 
   const replaceAll = useCallback((incoming: Array<{ canonicalId: string; quantity: number }>) => {
@@ -191,6 +209,7 @@ export function BasketProvider({ children }: { children: React.ReactNode }) {
       ready,
       add,
       setQuantity,
+      setProduct,
       remove,
       clear,
       replaceAll,
@@ -198,7 +217,7 @@ export function BasketProvider({ children }: { children: React.ReactNode }) {
         rows.find((row) => row.canonicalId === canonicalId)?.quantity ?? 0,
       lineCount: rows.length,
     }),
-    [rows, ready, add, setQuantity, remove, clear, replaceAll],
+    [rows, ready, add, setQuantity, setProduct, remove, clear, replaceAll],
   );
 
   return <BasketContext.Provider value={value}>{children}</BasketContext.Provider>;

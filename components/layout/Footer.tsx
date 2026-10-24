@@ -2,99 +2,61 @@ import Link from "next/link";
 import { Logo } from "@/components/brand/Logo";
 import { STORES } from "@/lib/catalog/stores";
 
+/**
+ * Compact app footer.
+ *
+ * The one disclosure this product has to keep — that the prices are the figures
+ * Kartly holds rather than live checkout prices, and that the stores are not
+ * partners — lives here, in plain grey text. It is a fact, not a warning label.
+ */
 export function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-cream-200 bg-cream-100/70">
-      <div className="mx-auto grid w-full max-w-[84rem] gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
-        <div className="max-w-sm">
+    <footer className="border-t border-cream-200 bg-cream-100/70">
+      <div className="mx-auto w-full max-w-[84rem] px-4 py-10 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <Logo />
-          <p className="mt-4 text-sm leading-relaxed text-sage-600">
-            Your shopping list, at the lowest possible cost. Kartly compares six Karachi
-            supermarkets at the level that actually matters — your whole basket, delivery
-            included.
-          </p>
-          <p className="mt-4 rounded-lg bg-warn-soft px-3 py-2 text-[0.76rem] leading-relaxed text-warn ring-1 ring-inset ring-warn/15">
-            Prices are supplied figures for the stores listed here, not their published price
-            lists. Where a delivery charge was not supplied, Kartly says so rather than guessing.
-            None of these stores is a Kartly partner.
-          </p>
+          <nav
+            aria-label="Footer"
+            className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[0.82rem] font-medium text-sage-600"
+          >
+            <Link href="/search" className="transition-colors hover:text-forest-800">
+              Products
+            </Link>
+            <Link href="/stores" className="transition-colors hover:text-forest-800">
+              Stores
+            </Link>
+            <Link href="/basket" className="transition-colors hover:text-forest-800">
+              Basket
+            </Link>
+            <Link href="/orders" className="transition-colors hover:text-forest-800">
+              Orders
+            </Link>
+          </nav>
         </div>
 
-        <FooterColumn
-          title="Compare"
-          links={[
-            { href: "/search", label: "Search products" },
-            { href: "/basket", label: "Basket optimiser" },
-            { href: "/stores", label: "Supermarkets" },
-            { href: "/receipt", label: "Scan a receipt" },
-          ]}
-        />
-
-        <FooterColumn
-          title="Popular searches"
-          links={[
-            { href: "/search?q=nesvita", label: "Nesvita" },
-            { href: "/search?q=basmati rice", label: "Basmati rice" },
-            { href: "/search?q=nurpur butter", label: "Nurpur butter" },
-            { href: "/search?q=canola oil", label: "Canola oil" },
-            { href: "/search?q=cocomo cereal", label: "Cocomo cereal" },
-          ]}
-        />
-
-        <div>
-          <h3 className="text-[0.78rem] font-semibold uppercase tracking-[0.12em] text-sage-500">
-            Supermarkets
-          </h3>
-          <ul className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-sage-600">
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          <span className="text-[0.76rem] font-semibold uppercase tracking-[0.1em] text-sage-400">
+            Compared here
+          </span>
+          <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8rem] text-sage-600">
             {STORES.map((store) => (
               <li key={store.id}>
-                <Link href={`/stores#${store.id}`} className="hover:text-forest-800">
+                <Link href={`/stores#${store.id}`} className="transition-colors hover:text-forest-800">
                   {store.name}
                 </Link>
               </li>
             ))}
           </ul>
         </div>
-      </div>
 
-      <div className="border-t border-cream-200">
-        <div className="mx-auto flex w-full max-w-[84rem] flex-col gap-2 px-4 py-5 text-[0.78rem] text-sage-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <span>© {new Date().getFullYear()} Kartly. Built in Karachi.</span>
-          <span className="flex items-center gap-4">
-            <Link href="/api/health" className="hover:text-forest-800">
-              API status
-            </Link>
-            <Link href="/search?sort=savings-desc" className="hover:text-forest-800">
-              Biggest price gaps
-            </Link>
+        <div className="mt-6 flex flex-col gap-1.5 border-t border-cream-200 pt-5 text-[0.76rem] leading-relaxed text-sage-500 sm:flex-row sm:items-center sm:justify-between">
+          <span>© {new Date().getFullYear()} Kartly · Built in Karachi</span>
+          <span>
+            Prices are the figures Kartly holds for these stores, not live checkout prices. Kartly is
+            not affiliated with the stores named.
           </span>
         </div>
       </div>
     </footer>
-  );
-}
-
-function FooterColumn({
-  title,
-  links,
-}: {
-  title: string;
-  links: Array<{ href: string; label: string }>;
-}) {
-  return (
-    <div>
-      <h3 className="text-[0.78rem] font-semibold uppercase tracking-[0.12em] text-sage-500">
-        {title}
-      </h3>
-      <ul className="mt-4 space-y-2 text-sm text-sage-600">
-        {links.map((link) => (
-          <li key={link.href + link.label}>
-            <Link href={link.href} className="hover:text-forest-800">
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
