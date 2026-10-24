@@ -21,10 +21,13 @@ import {
 } from "../lib/orders/store";
 import {
   ASAP_LEAD_MS,
+  ASAP_SLOT_ID,
   SLOT_LEAD_MS,
   asapSlot,
   buildSlots,
+  deliveryChoices,
   etaFor,
+  isClosed,
 } from "../lib/orders/slots";
 import type { ProductDetail } from "../lib/types";
 
@@ -203,6 +206,53 @@ async function main() {
       `${String(hour).padStart(2, "0")}:05 offers no window that has already closed`,
     );
   }
+
+  console.log("ASAP is always on offer");
+  // The demo holds no store-hours data, so a shop that can take an order at all
+  // can take one now: the live option has to be the first choice at every hour
+  // of the day, not something a page assembles by hand and can drop.
+  for (let hour = 0; hour < 24; hour += 1) {
+    const at = new Date(2026, 9, 24, hour, 17);
+    const rail = deliveryChoices(at);
+    equal(rail[0]?.id, ASAP_SLOT_ID, `${String(hour).padStart(2, "0")}:17 offers ASAP first`);
+    ok(
+      rail.filter((entry) => entry.id === ASAP_SLOT_ID).length === 1,
+      `${String(hour).padStart(2, "0")}:17 offers ASAP exactly once`,
+    );
+    ok(
+      rail.length >= 2,
+      `${String(hour).padStart(2, "0")}:17 still offers a scheduled window beside ASAP`,
+    );
+    ok(
+      rail.slice(1).every((entry) => !isClosed(entry, at.getTime())),
+      `${String(hour).padStart(2, "0")}:17 offers no window that has already closed`,
+    );
+    ok(
+      rail.every((entry) => etaFor(entry, at.getTime()) > at.getTime()),
+      `${String(hour).padStart(2, "0")}:17 never quotes an arrival in the past`,
+    );
+  }
+
+  console.log("A window that closes while the page is open");
+  // Offered at 09:50 as "Today 10am-12pm"; the shopper leaves the tab open and
+  // places the order at 12:30, after the window has gone.
+  const offeredAt = new Date(2026, 9, 24, 9, 50).getTime();
+  const placedLate = new Date(2026, 9, 24, 12, 30).getTime();
+  const chosen = buildSlots(new Date(offeredAt))[0];
+  equal(chosen.label, "Today 10am–12pm", "the shopper picked a window that was open when offered");
+  ok(isClosed(chosen, placedLate), "that window has closed by the time the order is placed");
+  ok(
+    chosen.startAt + SLOT_LEAD_MS < placedLate,
+      "counting from the window would have promised an arrival in the past",
+  );
+  ok(
+    etaFor(chosen, placedLate) >= placedLate + SLOT_LEAD_MS,
+    "a closed window is estimated from the moment of placing, never from the past",
+  );
+  ok(
+    deliveryChoices(new Date(placedLate)).every((entry) => !isClosed(entry, placedLate)),
+    "a rebuilt rail no longer offers the window that has closed",
+  );
 
   const asapOrder: DemoOrder = { ...order, slot: asap.label, etaAt: etaFor(asap, order.createdAt) };
   ok(asapOrder.etaAt > asapOrder.createdAt, "the ASAP estimate is in the future");

@@ -24,8 +24,7 @@ import { useCatalog, usePlan } from "@/lib/basket/use-catalog";
 import { useMounted, useNow, useOrders, type OrderShop } from "@/lib/orders/store";
 import {
   ASAP_SLOT_ID,
-  asapSlot,
-  buildSlots,
+  deliveryChoices,
   etaFor,
   type Slot,
 } from "@/lib/orders/slots";
@@ -85,13 +84,14 @@ export default function CheckoutPage() {
   // the browser is the one rendering — a prerendered page would otherwise print
   // build-time hours and disagree with the client.
   const mounted = useMounted();
-  const slots = useMemo(() => (mounted ? buildSlots(new Date()) : []), [mounted]);
-  // Only the ASAP row needs a live clock; the scheduled windows are fixed once
-  // the shopper sees them, so they are not rebuilt on every tick.
+  // The whole rail is rebuilt from the live clock. A window that closes while
+  // the shopper is still deciding drops out of the list rather than staying
+  // selectable with an estimate in the past, and ASAP — which `deliveryChoices`
+  // always puts first — simply moves up.
   const now = useNow(10_000);
   const choices = useMemo<Slot[]>(
-    () => (mounted ? [asapSlot(new Date(now)), ...slots] : []),
-    [mounted, now, slots],
+    () => (mounted ? deliveryChoices(new Date(now)) : []),
+    [mounted, now],
   );
   const activeSlot =
     choices.find((entry) => entry.id === slotId)?.id ?? choices[0]?.id ?? "";

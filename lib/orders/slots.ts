@@ -84,8 +84,32 @@ export function buildSlots(now: Date): Slot[] {
   return slots.slice(0, 3);
 }
 
+/**
+ * The rail the checkout renders, in the order it should be rendered.
+ *
+ * This is the only place the list is assembled, and the first element is always
+ * ASAP: the demo has no store-hours data, so whenever a shop can take an order
+ * at all it can take one now. A page that builds its own list can quietly drop
+ * the live option — a page that calls this one cannot.
+ */
+export function deliveryChoices(now: Date): Slot[] {
+  return [asapSlot(now), ...buildSlots(now)];
+}
+
+/** A window whose opening time has passed can no longer be chosen honestly. */
+export function isClosed(slot: Slot, at: number): boolean {
+  return slot.id !== ASAP_SLOT_ID && slot.startAt <= at;
+}
+
+/**
+ * When an order for this slot should be estimated to arrive. ASAP counts from
+ * the moment the order is actually placed; a window counts from when it opens —
+ * unless it has already opened while the page sat open, in which case counting
+ * from its start would promise a time in the past, so it counts from now.
+ */
 export function etaFor(slot: Slot, placedAt: number): number {
-  return (slot.id === ASAP_SLOT_ID ? placedAt : slot.startAt) + slot.leadMs;
+  const base = slot.id === ASAP_SLOT_ID ? placedAt : Math.max(slot.startAt, placedAt);
+  return base + slot.leadMs;
 }
 
 export function formatHour(hour: number): string {
